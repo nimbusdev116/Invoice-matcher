@@ -86,7 +86,33 @@ function classifySource(referenceNumber) {
   return { source: 'b2b_portal', channel: 'direct' }
 }
 
-// ─── Sync Endpoint ───────────────────────────────────────────────────────────
+// ─── Watermark Helpers ───────────────────────────────────────────────────────
+
+const SYNC_FLOOR = '2026-04-01T00:00:00+00:00'
+
+async function getWatermark() {
+  if (!supabase) return SYNC_FLOOR
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'zoho_last_sync_at')
+    .single()
+  const val = data?.value
+  if (typeof val === 'string' && val.length > 4) return val
+  return SYNC_FLOOR
+}
+
+async function setWatermark(iso) {
+  if (!supabase) return
+  await supabase
+    .from('app_settings')
+    .upsert(
+      { key: 'zoho_last_sync_at', value: JSON.stringify(iso), description: 'Last Zoho sync timestamp', is_sensitive: false },
+      { onConflict: 'key' }
+    )
+}
+
+// ─── Sync Endpoint (incremental) ─────────────────────────────────────────────
 
 app.post('/api/zoho/sync', async (req, res) => {
   try {
@@ -99,6 +125,9 @@ app.post('/api/zoho/sync', async (req, res) => {
       return res.status(500).json({ error: `Missing env vars: ${missing.join(', ')}` })
     }
 
+    const watermark = await getWatermark()
+    const syncStartedAt = new Date().toISOString()
+
     let page = 1
     let hasMore = true
     let totalSynced = 0
@@ -108,9 +137,10 @@ app.post('/api/zoho/sync', async (req, res) => {
     while (hasMore) {
       const data = await zohoGet('/salesorders', {
         sort_column: 'last_modified_time',
-        sort_order: 'D',
+        sort_order: 'A',
         per_page: 200,
         page,
+        last_modified_time_start: watermark,
       })
 
       const salesOrders = data.salesorders || []
@@ -119,7 +149,6 @@ app.post('/api/zoho/sync', async (req, res) => {
       for (const so of salesOrders) {
         try {
           const { source, channel } = classifySource(so.reference_number)
-          const isCourier = false // will be set when fulfillment method is assigned
 
           const orderData = {
             so_number: so.salesorder_number,
@@ -133,8 +162,6 @@ app.post('/api/zoho/sync', async (req, res) => {
             value: parseFloat(so.total) || 0,
             currency: so.currency_code || 'EUR',
             notes: so.notes || null,
-            pod_required: isCourier,
-            pod_received: false,
           }
 
           const { error } = await supabase
@@ -153,13 +180,16 @@ app.post('/api/zoho/sync', async (req, res) => {
 
       hasMore = data.page_context?.has_more_page ?? false
       page++
+      if (page > 50) break
+    }
 
-      // Safety limit
-      if (page > 20) break
+    // Update watermark on success
+    if (errors.length === 0 || totalSynced > 0) {
+      await setWatermark(syncStartedAt)
     }
 
     // Log the sync
-    await supabase?.from('zoho_sync_log').insert({
+    await supabase.from('zoho_sync_log').insert({
       operation: 'fetch_orders',
       status: errors.length === 0 ? 'success' : errors.length < totalSynced ? 'partial' : 'error',
       records_affected: totalSynced,
@@ -171,6 +201,7 @@ app.post('/api/zoho/sync', async (req, res) => {
       success: true,
       synced: totalSynced,
       skipped: totalSkipped,
+      watermark,
       errors: errors.slice(0, 10),
     })
   } catch (err) {
@@ -223,7 +254,7 @@ app.get('/api/zoho/test', async (req, res) => {
 // ─── Static Files (SPA) ─────────────────────────────────────────────────────
 
 app.use(express.static(path.join(__dirname, 'dist')))
-app.get('{*path}', (req, res) => {
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
