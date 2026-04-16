@@ -47,19 +47,6 @@ CREATE TABLE public.profiles (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Role helper (plpgsql so the body is not validated until first call)
-CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS TEXT
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN (SELECT role FROM public.profiles WHERE id = auth.uid());
-END;
-$$;
-
 -- orders
 CREATE TABLE public.orders (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -289,7 +276,21 @@ CREATE INDEX idx_fulfillments_order ON public.fulfillments (order_id);
 CREATE INDEX idx_pod_order  ON public.pod_records (order_id);
 CREATE INDEX idx_pod_status ON public.pod_records (status);
 
--- ===================  5. ROW LEVEL SECURITY  ===================
+-- ===================  5. ROLE HELPER  ===================
+-- Defined here (after ALL tables exist) to avoid any validation issues
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN (SELECT role FROM public.profiles WHERE id = auth.uid());
+END;
+$$;
+
+-- ===================  6. ROW LEVEL SECURITY  ===================
 
 ALTER TABLE public.profiles             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders               ENABLE ROW LEVEL SECURITY;
@@ -381,11 +382,11 @@ CREATE POLICY "sync_log_insert_all"
   ON public.zoho_sync_log FOR INSERT
   WITH CHECK (true);
 
--- ===================  6. REALTIME  ===================
+-- ===================  7. REALTIME  ===================
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders, public.fulfillments, public.pod_records;
 
--- ===================  7. SEED DATA  ===================
+-- ===================  8. SEED DATA  ===================
 
 INSERT INTO public.app_settings (key, value, description, is_sensitive) VALUES
   ('zoho_org_id',          '"" '::jsonb,                        'Zoho organisation ID',               TRUE),
