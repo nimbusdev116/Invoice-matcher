@@ -15,20 +15,9 @@ BEGIN
 END;
 $$;
 
--- Returns the role of the currently authenticated user
-CREATE OR REPLACE FUNCTION public.current_user_role()
-RETURNS TEXT
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid();
-$$;
-
 -- ===================  2. TABLES  ===================
 
--- profiles (extends auth.users)
+-- profiles (extends auth.users) — created first so current_user_role() can reference it
 CREATE TABLE public.profiles (
   id          UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   email       TEXT NOT NULL,
@@ -41,6 +30,17 @@ CREATE TABLE public.profiles (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Role helper (defined after profiles table exists)
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$;
 
 -- orders
 CREATE TABLE public.orders (

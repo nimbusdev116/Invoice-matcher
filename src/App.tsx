@@ -69,7 +69,7 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <AppShell pendingCount={0} />
+            <AppShell />
           </ProtectedRoute>
         }
       >
