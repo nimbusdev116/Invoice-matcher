@@ -163,7 +163,7 @@ export default function AllOrders() {
   }
 
   /* ── column header helper ── */
-  function TH({ label, sortable, colKey, className = '' }: { label: string; sortable?: SortKey; colKey?: never; className?: string } | { label: string; sortable: SortKey; colKey?: never; className?: string }) {
+  function TH({ label, sortable, className = '' }: { label: string; sortable?: SortKey; className?: string }) {
     const base = 'text-muted text-[11px] uppercase tracking-wide font-semibold py-2.5 px-3 text-left whitespace-nowrap'
     if (!sortable) return <th className={cn(base, className)}>{label}</th>
     return (
