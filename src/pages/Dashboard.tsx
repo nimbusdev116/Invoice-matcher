@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { zohoSync } from '../lib/api'
 import type { Order, OrderChannel, OrderStatus } from '../types'
 import { CHANNEL_CONFIG, STATUS_LABELS } from '../types'
 import { formatEur, hoursAgo, ageLabel } from '../lib/utils'
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [history, setHistory] = useState<StatusHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState('')
 
   const fetchData = useCallback(async () => {
@@ -119,6 +121,27 @@ export default function Dashboard() {
           {lastUpdated && (
             <span className="text-xs text-muted">Updated {lastUpdated}</span>
           )}
+          <button
+            onClick={async () => {
+              setSyncing(true)
+              try {
+                const result = await zohoSync()
+                await fetchData()
+                setSyncing(false)
+                alert(`Synced ${result.synced} orders from Zoho Books${result.errors.length ? `\n${result.errors.length} errors` : ''}`)
+              } catch (err) {
+                setSyncing(false)
+                alert(`Sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+              }
+            }}
+            disabled={syncing}
+            className="flex items-center gap-1.5 bg-green-d hover:bg-green/25 text-green text-xs font-medium rounded-md px-3 py-1.5 border border-green/25 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 2.5a5.487 5.487 0 00-4.131 1.869l1.204 1.204A.25.25 0 014.896 6H1.25A.25.25 0 011 5.75V2.104a.25.25 0 01.427-.177l1.38 1.38A7.002 7.002 0 0115 8a.75.75 0 01-1.5 0 5.5 5.5 0 00-5.5-5.5zM2.5 8a.75.75 0 00-1.5 0 7.002 7.002 0 0012.193 4.693l1.38 1.38a.25.25 0 00.427-.177V10.25a.25.25 0 00-.25-.25h-3.646a.25.25 0 00-.177.427l1.204 1.204A5.487 5.487 0 018 13.5 5.5 5.5 0 012.5 8z" />
+            </svg>
+            {syncing ? 'Syncing...' : 'Sync Zoho'}
+          </button>
           <button
             onClick={fetchData}
             className="flex items-center gap-1.5 bg-amber-d hover:bg-amber/25 text-amber text-xs font-medium rounded-md px-3 py-1.5 border border-amber/25 transition-colors cursor-pointer"

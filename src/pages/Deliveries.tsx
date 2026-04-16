@@ -194,7 +194,7 @@ export default function Deliveries() {
             {filtered.length === 0 ? (
               <div className="flex items-center justify-center py-20 text-muted">
                 <div className="text-center">
-                  <div className="text-3xl mb-2 opacity-40">{'\u{1F4E6}'}</div>
+                  <div className="mb-2 opacity-40 flex justify-center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg></div>
                   <div className="text-sm">No deliveries match your filters</div>
                   <div className="text-xs mt-1 opacity-70">Try adjusting your filters</div>
                 </div>

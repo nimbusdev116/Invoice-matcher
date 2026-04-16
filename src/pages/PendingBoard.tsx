@@ -103,7 +103,7 @@ export default function PendingBoard() {
   const handleCreateOrder = async (order: Parameters<typeof createOrder>[0]) => {
     try {
       const created = await createOrder(order)
-      showToast(`${created.so_number} created ✓`, 'success')
+      showToast(`${created.so_number} created`, 'success')
     } catch {
       showToast('Failed to create order', 'error')
     }

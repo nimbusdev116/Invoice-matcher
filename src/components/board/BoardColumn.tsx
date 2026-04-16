@@ -90,7 +90,7 @@ export default function BoardColumn({
           ))
         ) : (
           <div className="py-6 px-3 text-center text-muted text-xs">
-            <div className="text-[28px] mb-2 opacity-40">✓</div>
+            <div className="mb-2 opacity-40 flex justify-center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg></div>
             All clear
           </div>
         )}

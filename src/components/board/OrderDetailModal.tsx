@@ -55,7 +55,7 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
             variant="green"
             onClick={() => onSave(order.id, { status, fulfillment_method: fulfillment, notes: notes || null })}
           >
-            Save & move ✓
+            Save & move
           </Button>
         </>
       }

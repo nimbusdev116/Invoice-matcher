@@ -77,7 +77,7 @@ export default function OrderCard({ order, onAdvance, onProcess, onClick }: Prop
         </Button>
         {order.status === 'pending' && (
           <Button size="sm" onClick={() => onProcess(order.id)}>
-            Process ✓
+            Process
           </Button>
         )}
       </div>

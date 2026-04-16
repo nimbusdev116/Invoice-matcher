@@ -249,7 +249,7 @@ export default function AllOrders() {
         ) : paged.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted">
             <div className="text-center">
-              <div className="text-3xl mb-2 opacity-40">&#x1F50D;</div>
+              <div className="mb-2 opacity-40 flex justify-center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
               <div className="text-sm">No orders match your filters</div>
               <div className="text-xs mt-1 opacity-70">Try adjusting your search or filters</div>
             </div>

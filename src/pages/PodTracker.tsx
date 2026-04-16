@@ -124,7 +124,7 @@ export default function PodTracker() {
 
               {awaitingPod.length === 0 ? (
                 <div className="bg-s1 border border-border rounded-lg px-5 py-10 text-center text-muted">
-                  <div className="text-2xl mb-2 opacity-40">{'\u2705'}</div>
+                  <div className="mb-2 opacity-40 flex justify-center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg></div>
                   <div className="text-sm">All PODs have been confirmed</div>
                 </div>
               ) : (
@@ -198,7 +198,7 @@ export default function PodTracker() {
 
               {podReceived.length === 0 ? (
                 <div className="bg-s1 border border-border rounded-lg px-5 py-10 text-center text-muted">
-                  <div className="text-2xl mb-2 opacity-40">{'\u{1F4E6}'}</div>
+                  <div className="mb-2 opacity-40 flex justify-center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg></div>
                   <div className="text-sm">No confirmed PODs yet</div>
                 </div>
               ) : (
