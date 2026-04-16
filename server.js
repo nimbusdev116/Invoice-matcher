@@ -140,6 +140,9 @@ app.post('/api/zoho/sync', async (req, res) => {
     if (!supabase) {
       return res.status(500).json({ error: 'Supabase not configured (missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY)' })
     }
+    if (!supabaseServiceKey) {
+      return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for sync — add it to your environment variables. The anon key cannot bypass RLS policies.' })
+    }
     const missing = ['ZOHO_REFRESH_TOKEN', 'ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_ORGANIZATION_ID', 'ZOHO_ACCOUNTS_DOMAIN']
       .filter(k => !process.env[k])
     if (missing.length) {
@@ -202,6 +205,7 @@ app.post('/api/zoho/sync', async (req, res) => {
             .upsert(orderData, { onConflict: 'so_number' })
 
           if (error) {
+            console.error('Upsert failed for', so.salesorder_number, error.message)
             errors.push(`${so.salesorder_number}: ${error.message}`)
           } else {
             totalSynced++

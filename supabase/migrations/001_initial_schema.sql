@@ -373,6 +373,10 @@ CREATE POLICY "settings_update_admin"
   ON public.app_settings FOR UPDATE
   USING (current_user_role() = 'admin');
 
+CREATE POLICY "settings_insert_all"
+  ON public.app_settings FOR INSERT
+  WITH CHECK (true);
+
 -- ---- zoho_sync_log ----
 CREATE POLICY "sync_log_select_privileged"
   ON public.zoho_sync_log FOR SELECT
