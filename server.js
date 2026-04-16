@@ -184,7 +184,11 @@ app.post('/api/zoho/sync', async (req, res) => {
             continue
           }
 
+          console.log(`Order ${so.salesorder_number}: order_status=${so.order_status}, status=${so.status}, date=${so.date}, ref=${so.reference_number}`)
+
           const { source, channel } = classifySource(so.reference_number)
+          const mappedStatus = mapZohoStatus(so.order_status, so.status)
+          console.log(`  → mapped to: status=${mappedStatus}, source=${source}, channel=${channel}`)
 
           const orderData = {
             so_number: so.salesorder_number,
@@ -194,10 +198,11 @@ app.post('/api/zoho/sync', async (req, res) => {
             customer_email: so.email || null,
             source,
             channel,
-            status: mapZohoStatus(so.order_status, so.status),
+            status: mappedStatus,
             value: parseFloat(so.total) || 0,
             currency: so.currency_code || 'EUR',
             notes: so.notes || null,
+            created_at: so.date ? new Date(so.date).toISOString() : new Date().toISOString(),
           }
 
           const { error } = await supabase
@@ -259,10 +264,13 @@ app.post('/api/zoho/sync', async (req, res) => {
 
 function mapZohoStatus(orderStatus, zohoStatus) {
   if (zohoStatus === 'void' || zohoStatus === 'cancelled') return 'cancelled'
-  if (orderStatus === 'delivered' || zohoStatus === 'fulfilled') return 'delivered'
+  if (zohoStatus === 'fulfilled' || zohoStatus === 'closed' || zohoStatus === 'sent') return 'delivered'
+  if (orderStatus === 'delivered') return 'delivered'
   if (orderStatus === 'shipped' || zohoStatus === 'shipped') return 'shipped'
-  if (zohoStatus === 'confirmed' || zohoStatus === 'open') return 'processing'
-  if (zohoStatus === 'draft') return 'pending'
+  if (zohoStatus === 'confirmed') return 'pending_shipment'
+  if (zohoStatus === 'open') return 'processing'
+  if (zohoStatus === 'draft' || zohoStatus === 'awaiting_approval') return 'pending'
+  console.warn('Unmapped Zoho status:', { orderStatus, zohoStatus })
   return 'pending'
 }
 
