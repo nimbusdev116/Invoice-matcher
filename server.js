@@ -195,7 +195,7 @@ app.post('/api/zoho/sync', async (req, res) => {
             }
           }
 
-          console.log(`SO ${so.salesorder_number}: zoho_status=${so.status}, date=${so.date}, ref=${so.reference_number}, customer=${so.customer_name}`)
+          console.log(`SO ${so.salesorder_number}: status=${so.status}, order_status=${so.order_status}, invoiced=${so.invoiced_status}, shipped=${so.shipped_status}, date=${so.date}, ref=${so.reference_number}, customer=${so.customer_name}`)
 
           const { source, channel } = classifySource(so.reference_number, so.customer_name)
           const { status: mappedStatus, invoiceId, invoiceNumber } = await resolveOrderStatus(so)
@@ -285,19 +285,30 @@ app.post('/api/zoho/sync', async (req, res) => {
 
 // ─── Zoho Status Mapping ─────────────────────────────────────────────────────
 
-function mapZohoSOStatus(zohoStatus) {
-  if (zohoStatus === 'void' || zohoStatus === 'cancelled') return 'cancelled'
-  if (zohoStatus === 'fulfilled' || zohoStatus === 'closed') return 'delivered'
-  if (zohoStatus === 'confirmed') return 'awaiting_shipment'
-  if (zohoStatus === 'open') return 'processing'
-  if (zohoStatus === 'draft' || zohoStatus === 'awaiting_approval') return 'pending'
-  console.warn('Unmapped Zoho SO status:', zohoStatus)
+function mapZohoSOStatus(so) {
+  const status = (so.status || '').toLowerCase()
+  const orderStatus = (so.order_status || '').toLowerCase()
+  const invoicedStatus = (so.invoiced_status || '').toLowerCase()
+  const shippedStatus = (so.shipped_status || '').toLowerCase()
+
+  if (status === 'void' || status === 'cancelled') return 'cancelled'
+  if (status === 'fulfilled' || status === 'closed') return 'delivered'
+  if (shippedStatus === 'shipped') return 'shipped'
+  if (invoicedStatus === 'invoiced' || invoicedStatus === 'partially_invoiced') return 'awaiting_shipment'
+  if (orderStatus === 'confirmed' || status === 'confirmed') return 'awaiting_shipment'
+  if (status === 'open') return 'processing'
+  if (status === 'draft' || status === 'awaiting_approval') return 'pending'
+  console.warn('Unmapped Zoho SO status:', status, 'order_status:', orderStatus)
   return 'pending'
 }
 
 async function resolveOrderStatus(so) {
-  const baseStatus = mapZohoSOStatus(so.status)
-  if (baseStatus === 'awaiting_shipment' || baseStatus === 'processing') {
+  const baseStatus = mapZohoSOStatus(so)
+  const invoicedStatus = (so.invoiced_status || '').toLowerCase()
+  const shouldCheckInvoice = baseStatus === 'awaiting_shipment' || baseStatus === 'processing' ||
+    invoicedStatus === 'invoiced' || invoicedStatus === 'partially_invoiced'
+
+  if (shouldCheckInvoice) {
     try {
       const invoiceData = await zohoGet('/invoices', {
         salesorder_id: so.salesorder_id,
