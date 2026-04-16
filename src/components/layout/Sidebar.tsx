@@ -40,12 +40,7 @@ const icons = {
       <path d="M4.72.22a.75.75 0 011.06 0l1 1a.75.75 0 01-1.06 1.06L5.5 2.06v7.94a.75.75 0 01-1.5 0V2.06l-.22.22a.75.75 0 01-1.06-1.06l1-1zm5.56 1.28a.75.75 0 10-1.06 1.06l.22.22v7.94a.75.75 0 001.5 0V2.78l.22.22a.75.75 0 001.06-1.06l-1-1a.75.75 0 00-1.06 0l-.88.56zM1.5 13.75a.75.75 0 01.75-.75h11.5a.75.75 0 010 1.5H2.25a.75.75 0 01-.75-.75z" />
     </svg>
   ),
-  channels: (
-    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M1.5 1.75V13.5h13.75a.75.75 0 010 1.5H.75a.75.75 0 01-.75-.75V1.75a.75.75 0 011.5 0zm14.28 2.53a.75.75 0 00-1.06-1.06L10 7.94 7.53 5.47a.75.75 0 00-1.06 0L3.22 8.72a.75.75 0 001.06 1.06L7 7.06l2.47 2.47a.75.75 0 001.06 0l5.25-5.25z" />
-    </svg>
-  ),
-  reps: (
+  settings: (
     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
       <path d="M2 5.5a3.5 3.5 0 115.898 2.549 5.508 5.508 0 013.034 4.084.75.75 0 11-1.482.235 4.001 4.001 0 00-6.9 0 .75.75 0 01-1.482-.236A5.507 5.507 0 013.102 8.05 3.493 3.493 0 012 5.5zM5.5 4a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm5-.5a.75.75 0 01.75.75v1h1a.75.75 0 010 1.5h-1v1a.75.75 0 01-1.5 0v-1h-1a.75.75 0 010-1.5h1v-1A.75.75 0 0110.5 3.5z" />
     </svg>
@@ -63,9 +58,8 @@ export default function Sidebar({ pendingCount }: SidebarProps) {
     { label: 'POD tracker', to: '/pod-tracker', icon: icons.pod },
   ]
 
-  const analyticsItems: NavItem[] = [
-    { label: 'Channels', to: '/channels', icon: icons.channels },
-    { label: 'Reps & routes', to: '/reps-routes', icon: icons.reps },
+  const settingsItems: NavItem[] = [
+    { label: 'Settings', to: '/settings', icon: icons.settings },
   ]
 
   const initials = profile?.full_name
@@ -125,13 +119,13 @@ export default function Sidebar({ pendingCount }: SidebarProps) {
           </ul>
         </div>
 
-        {/* Analytics group */}
+        {/* Settings group */}
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted font-medium px-2 mb-1.5">
-            Analytics
+            Account
           </div>
           <ul className="space-y-0.5">
-            {analyticsItems.map((item) => (
+            {settingsItems.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
