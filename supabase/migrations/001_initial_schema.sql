@@ -2,6 +2,26 @@
 -- OrderTrack – Initial Schema Migration
 -- ============================================================
 
+-- Drop prior partial runs (safe if nothing exists yet)
+DROP TRIGGER IF EXISTS set_pod_updated_at ON public.pod_records;
+DROP TRIGGER IF EXISTS set_fulfillments_updated_at ON public.fulfillments;
+DROP TRIGGER IF EXISTS trg_order_status_change ON public.orders;
+DROP TRIGGER IF EXISTS set_profiles_updated_at ON public.profiles;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+DROP FUNCTION IF EXISTS public.log_order_status_change();
+DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.current_user_role();
+DROP FUNCTION IF EXISTS public.update_updated_at();
+
+DROP TABLE IF EXISTS public.app_settings CASCADE;
+DROP TABLE IF EXISTS public.zoho_sync_log CASCADE;
+DROP TABLE IF EXISTS public.pod_records CASCADE;
+DROP TABLE IF EXISTS public.fulfillments CASCADE;
+DROP TABLE IF EXISTS public.order_status_history CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
 -- ===================  1. HELPER FUNCTIONS  ===================
 
 -- Generic updated_at trigger function
@@ -31,15 +51,17 @@ CREATE TABLE public.profiles (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Role helper (defined after profiles table exists)
+-- Role helper (plpgsql so the body is not validated until first call)
 CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS TEXT
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid();
+BEGIN
+  RETURN (SELECT role FROM public.profiles WHERE id = auth.uid());
+END;
 $$;
 
 -- orders
