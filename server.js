@@ -139,10 +139,10 @@ async function setWatermark(iso) {
 app.post('/api/zoho/sync', async (req, res) => {
   try {
     if (!supabase) {
-      return res.status(500).json({ error: 'Supabase not configured (missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY)' })
+      return res.status(500).json({ error: 'Supabase not configured' })
     }
     if (!supabaseServiceKey) {
-      return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for sync — add it to your environment variables. The anon key cannot bypass RLS policies.' })
+      return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for sync' })
     }
     const missing = ['ZOHO_REFRESH_TOKEN', 'ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_ORGANIZATION_ID', 'ZOHO_ACCOUNTS_DOMAIN']
       .filter(k => !process.env[k])
@@ -150,8 +150,16 @@ app.post('/api/zoho/sync', async (req, res) => {
       return res.status(500).json({ error: `Missing env vars: ${missing.join(', ')}` })
     }
 
+    const fullResync = req.query.full === 'true' || req.body?.full === true
+
+    if (fullResync) {
+      console.log('Full resync requested — resetting watermark to floor date')
+      await setWatermark(SYNC_FLOOR)
+    }
+
     const watermark = await getWatermark()
     const syncStartedAt = new Date().toISOString()
+    console.log(`Sync starting. watermark=${watermark}, full=${fullResync}`)
 
     let page = 1
     let hasMore = true
@@ -170,7 +178,7 @@ app.post('/api/zoho/sync', async (req, res) => {
         date_start: floorDate,
       }
 
-      console.log(`Fetching Zoho page ${page}, watermark=${watermark}`)
+      console.log(`Fetching Zoho SO page ${page}`)
       const data = await zohoGet('/salesorders', params)
 
       const salesOrders = data.salesorders || []
@@ -179,17 +187,28 @@ app.post('/api/zoho/sync', async (req, res) => {
 
       for (const so of salesOrders) {
         try {
-          const modTime = so.last_modified_time || so.created_time || ''
-          if (modTime && modTime < watermark) {
-            totalSkipped++
-            continue
+          if (!fullResync) {
+            const modTime = so.last_modified_time || so.created_time || ''
+            if (modTime && modTime < watermark) {
+              totalSkipped++
+              continue
+            }
           }
 
-          console.log(`Order ${so.salesorder_number}: status=${so.status}, date=${so.date}, ref=${so.reference_number}, customer=${so.customer_name}`)
+          console.log(`SO ${so.salesorder_number}: zoho_status=${so.status}, date=${so.date}, ref=${so.reference_number}, customer=${so.customer_name}`)
 
           const { source, channel } = classifySource(so.reference_number, so.customer_name)
           const { status: mappedStatus, invoiceId, invoiceNumber } = await resolveOrderStatus(so)
-          console.log(`  → mapped to: status=${mappedStatus}, source=${source}, channel=${channel}${invoiceId ? ', invoice=' + invoiceNumber : ''}`)
+          console.log(`  → status=${mappedStatus}, channel=${channel}${invoiceId ? ', inv=' + invoiceNumber : ''}`)
+
+          const zohoDate = so.date || so.created_time || ''
+          let orderCreatedAt
+          if (zohoDate) {
+            const parsed = new Date(zohoDate)
+            orderCreatedAt = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString()
+          } else {
+            orderCreatedAt = new Date().toISOString()
+          }
 
           const orderData = {
             so_number: so.salesorder_number,
@@ -205,7 +224,7 @@ app.post('/api/zoho/sync', async (req, res) => {
             value: parseFloat(so.total) || 0,
             currency: so.currency_code || 'EUR',
             notes: so.notes || null,
-            created_at: so.date ? new Date(so.date).toISOString() : new Date().toISOString(),
+            created_at: orderCreatedAt,
           }
 
           const { error } = await supabase
@@ -213,12 +232,13 @@ app.post('/api/zoho/sync', async (req, res) => {
             .upsert(orderData, { onConflict: 'so_number' })
 
           if (error) {
-            console.error('Upsert failed for', so.salesorder_number, error.message)
+            console.error('Upsert failed:', so.salesorder_number, error.message, error.details)
             errors.push(`${so.salesorder_number}: ${error.message}`)
           } else {
             totalSynced++
           }
         } catch (err) {
+          console.error('Order error:', so.salesorder_number, err.message)
           errors.push(`${so.salesorder_number}: ${err.message}`)
         }
       }
@@ -228,12 +248,10 @@ app.post('/api/zoho/sync', async (req, res) => {
       if (page > 50) break
     }
 
-    // Update watermark on success
     if (errors.length === 0 || totalSynced > 0) {
       await setWatermark(syncStartedAt)
     }
 
-    // Log the sync
     await supabase.from('zoho_sync_log').insert({
       operation: 'fetch_orders',
       status: errors.length === 0 ? 'success' : errors.length < totalSynced ? 'partial' : 'error',
@@ -241,6 +259,8 @@ app.post('/api/zoho/sync', async (req, res) => {
       error_message: errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
       completed_at: new Date().toISOString(),
     })
+
+    console.log(`Sync done: synced=${totalSynced}, skipped=${totalSkipped}, errors=${errors.length}`)
 
     res.json({
       success: true,

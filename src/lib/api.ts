@@ -1,11 +1,15 @@
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3000' : ''
 
-export async function zohoSync(): Promise<{
+export async function zohoSync(opts?: { full?: boolean }): Promise<{
   success: boolean
   synced: number
+  skipped?: number
   errors: string[]
 }> {
-  const res = await fetch(`${API_BASE}/api/zoho/sync`, { method: 'POST' })
+  const url = opts?.full
+    ? `${API_BASE}/api/zoho/sync?full=true`
+    : `${API_BASE}/api/zoho/sync`
+  const res = await fetch(url, { method: 'POST' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: 'Sync failed' }))
     throw new Error(data.error || `HTTP ${res.status}`)
