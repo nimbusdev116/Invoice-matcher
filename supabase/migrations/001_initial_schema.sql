@@ -389,9 +389,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.orders, public.fulfillments
 -- ===================  8. SEED DATA  ===================
 
 INSERT INTO public.app_settings (key, value, description, is_sensitive) VALUES
-  ('zoho_org_id',          '"" '::jsonb,                        'Zoho organisation ID',               TRUE),
-  ('zoho_client_id',       '"" '::jsonb,                        'Zoho OAuth2 client ID',              TRUE),
-  ('zoho_client_secret',   '"" '::jsonb,                        'Zoho OAuth2 client secret',          TRUE),
-  ('zoho_refresh_token',   '"" '::jsonb,                        'Zoho OAuth2 refresh token',          TRUE),
-  ('zoho_base_url',        '"https://www.zohoapis.eu"'::jsonb,  'Zoho API base URL',                  FALSE),
-  ('urgent_threshold_hours', '24'::jsonb,                       'Hours before an order is flagged urgent', FALSE);
+  ('zoho_org_id',            '""'::jsonb,                         'Zoho organisation ID',               TRUE),
+  ('zoho_client_id',         '""'::jsonb,                         'Zoho OAuth2 client ID',              TRUE),
+  ('zoho_client_secret',     '""'::jsonb,                         'Zoho OAuth2 client secret',          TRUE),
+  ('zoho_refresh_token',     '""'::jsonb,                         'Zoho OAuth2 refresh token',          TRUE),
+  ('zoho_base_url',          '"https://www.zohoapis.eu"'::jsonb,  'Zoho API base URL',                  FALSE),
+  ('urgent_threshold_hours', '24'::jsonb,                         'Hours before an order is flagged urgent', FALSE),
+  ('zoho_last_sync_at',     '"2026-04-01T00:00:00+00:00"'::jsonb, 'Last Zoho sync watermark',          FALSE);

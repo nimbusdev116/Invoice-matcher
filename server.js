@@ -4,6 +4,18 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 
+console.log('Server starting...')
+console.log('Node version:', process.version)
+console.log('PORT env:', process.env.PORT)
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err)
+  process.exit(1)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err)
+})
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -11,10 +23,16 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
-// Supabase admin client (uses service role key if available, otherwise anon key)
+// Supabase admin client (uses service role key to bypass RLS for server operations)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || ''
+const supabaseKey = supabaseServiceKey || supabaseAnonKey
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
+
+if (!supabaseServiceKey && supabaseAnonKey) {
+  console.warn('WARNING: SUPABASE_SERVICE_ROLE_KEY not set — using anon key. Zoho sync will fail due to RLS policies.')
+}
 
 // ─── Zoho OAuth Token ────────────────────────────────────────────────────────
 
@@ -97,8 +115,11 @@ async function getWatermark() {
     .select('value')
     .eq('key', 'zoho_last_sync_at')
     .single()
-  const val = data?.value
-  if (typeof val === 'string' && val.length > 4) return val
+  let val = data?.value
+  if (typeof val === 'string') {
+    val = val.replace(/^"|"$/g, '')
+    if (val.length > 4) return val
+  }
   return SYNC_FLOOR
 }
 
@@ -107,7 +128,7 @@ async function setWatermark(iso) {
   await supabase
     .from('app_settings')
     .upsert(
-      { key: 'zoho_last_sync_at', value: JSON.stringify(iso), description: 'Last Zoho sync timestamp', is_sensitive: false },
+      { key: 'zoho_last_sync_at', value: iso, description: 'Last Zoho sync timestamp', is_sensitive: false },
       { onConflict: 'key' }
     )
 }
@@ -134,20 +155,32 @@ app.post('/api/zoho/sync', async (req, res) => {
     let totalSkipped = 0
     const errors = []
 
+    const floorDate = SYNC_FLOOR.slice(0, 10)
+
     while (hasMore) {
-      const data = await zohoGet('/salesorders', {
+      const params = {
         sort_column: 'last_modified_time',
         sort_order: 'A',
         per_page: 200,
         page,
-        last_modified_time_start: watermark,
-      })
+        date_start: floorDate,
+      }
+
+      console.log(`Fetching Zoho page ${page}, watermark=${watermark}`)
+      const data = await zohoGet('/salesorders', params)
 
       const salesOrders = data.salesorders || []
+      console.log(`Got ${salesOrders.length} sales orders on page ${page}`)
       if (salesOrders.length === 0) break
 
       for (const so of salesOrders) {
         try {
+          const modTime = so.last_modified_time || so.created_time || ''
+          if (modTime && modTime < watermark) {
+            totalSkipped++
+            continue
+          }
+
           const { source, channel } = classifySource(so.reference_number)
 
           const orderData = {
@@ -251,6 +284,12 @@ app.get('/api/zoho/test', async (req, res) => {
   }
 })
 
+// ─── Health Check ───────────────────────────────────────────────────────────
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
 // ─── Static Files (SPA) ─────────────────────────────────────────────────────
 
 app.use(express.static(path.join(__dirname, 'dist')))
@@ -260,4 +299,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`)
+  console.log(`Supabase configured: ${!!supabase}`)
+  console.log(`Zoho env vars: REFRESH_TOKEN=${!!process.env.ZOHO_REFRESH_TOKEN}, CLIENT_ID=${!!process.env.ZOHO_CLIENT_ID}, ORG_ID=${!!process.env.ZOHO_ORGANIZATION_ID}`)
 })
