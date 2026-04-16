@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 type BadgeVariant =
   | "pending"
   | "processing"
-  | "shipment"
+  | "awaiting"
   | "shipped"
   | "delivered"
   | "cancelled";
@@ -16,7 +16,7 @@ interface BadgeProps {
 const variantClasses: Record<BadgeVariant, string> = {
   pending: "bg-amber-d text-amber",
   processing: "bg-blue-d text-blue",
-  shipment: "bg-orange-d text-orange",
+  awaiting: "bg-orange-d text-orange",
   shipped: "bg-purple-d text-purple",
   delivered: "bg-green-d text-green",
   cancelled: "bg-s3 text-muted",

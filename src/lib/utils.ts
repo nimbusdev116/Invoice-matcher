@@ -17,17 +17,29 @@ export function ageLabel(iso: string): string {
   return `${d}d ${rem}h ago`
 }
 
-export function classifySource(referenceNumber: string | null | undefined): {
-  source: OrderSource
-  channel: OrderChannel
-} {
-  if (!referenceNumber || referenceNumber.trim() === '') {
-    return { source: 'manual', channel: 'offline' }
+export function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-IE', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
+}
+
+export function classifySource(
+  referenceNumber: string | null | undefined,
+  customerName?: string | null
+): { source: OrderSource; channel: OrderChannel } {
+  const ref = (referenceNumber || '').trim().toUpperCase()
+  const name = (customerName || '').toUpperCase()
+
+  if (ref.startsWith('BWG') || name.includes('BWG')) {
+    return { source: 'bwg_portal', channel: 'bwg' }
   }
-  const ref = referenceNumber.toUpperCase()
-  if (ref.startsWith('BWG')) return { source: 'bwg_portal', channel: 'bwg' }
   if (ref.startsWith('X')) return { source: 'musgrave_portal', channel: 'musgrave' }
-  if (ref.startsWith('INV')) return { source: 'mirakl', channel: 'musgrave' }
+  if (ref.startsWith('INV')) return { source: 'mirakl', channel: 'direct' }
   return { source: 'b2b_portal', channel: 'direct' }
 }
 

@@ -8,7 +8,7 @@ interface Props {
 export default function SummaryBar({ orders }: Props) {
   const pending = orders.filter((o) => o.status === 'pending').length
   const processing = orders.filter((o) => o.status === 'processing').length
-  const shipment = orders.filter((o) => o.status === 'pending_shipment').length
+  const shipment = orders.filter((o) => o.status === 'awaiting_shipment').length
   const urgent = orders.filter((o) => hoursAgo(o.created_at) >= 24).length
   const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
 
@@ -16,7 +16,7 @@ export default function SummaryBar({ orders }: Props) {
     <div className="flex items-center gap-4 px-5 py-2.5 bg-s1 border-b border-border shrink-0">
       <SumItem color="bg-amber" value={pending} label="pending" />
       <SumItem color="bg-blue" value={processing} label="processing" />
-      <SumItem color="bg-orange" value={shipment} label="pending shipment" />
+      <SumItem color="bg-orange" value={shipment} label="awaiting shipment" />
       <div className="flex-1" />
       <div className="flex items-center gap-1.5 text-xs">
         <div className="w-2 h-2 rounded-full bg-red" />

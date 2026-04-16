@@ -18,10 +18,10 @@ const PAGE_SIZE = 20
 type SortKey = 'so_number' | 'customer_name' | 'value' | 'created_at'
 type SortDir = 'asc' | 'desc'
 
-const STATUS_TO_BADGE: Record<OrderStatus, 'pending' | 'processing' | 'shipment' | 'shipped' | 'delivered' | 'cancelled'> = {
+const STATUS_TO_BADGE: Record<OrderStatus, 'pending' | 'processing' | 'awaiting' | 'shipped' | 'delivered' | 'cancelled'> = {
   pending: 'pending',
   processing: 'processing',
-  pending_shipment: 'shipment',
+  awaiting_shipment: 'awaiting',
   shipped: 'shipped',
   delivered: 'delivered',
   cancelled: 'cancelled',
@@ -31,14 +31,14 @@ const CHANNEL_DOT_COLOR: Record<OrderChannel, string> = {
   direct: 'bg-blue',
   bwg: 'bg-purple',
   musgrave: 'bg-amber',
-  offline: 'bg-red',
+  manual: 'bg-red',
 }
 
 const STATUS_OPTIONS: { value: '' | OrderStatus; label: string }[] = [
   { value: '', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'processing', label: 'Processing' },
-  { value: 'pending_shipment', label: 'Pending Shipment' },
+  { value: 'awaiting_shipment', label: 'Awaiting Shipment' },
   { value: 'shipped', label: 'Shipped' },
   { value: 'delivered', label: 'Delivered' },
   { value: 'cancelled', label: 'Cancelled' },
@@ -49,7 +49,7 @@ const CHANNEL_OPTIONS: { value: '' | OrderChannel; label: string }[] = [
   { value: 'direct', label: 'Direct' },
   { value: 'bwg', label: 'BWG' },
   { value: 'musgrave', label: 'Musgrave' },
-  { value: 'offline', label: 'Offline' },
+  { value: 'manual', label: 'Manual' },
 ]
 
 /* ─── sort arrow icon ─── */

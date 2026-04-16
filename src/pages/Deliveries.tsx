@@ -13,11 +13,11 @@ import Badge from '../components/ui/Badge'
 
 /* ─── constants ─── */
 
-type DeliveryFilter = 'all' | 'pending_shipment' | 'shipped' | 'delivered'
+type DeliveryFilter = 'all' | 'awaiting_shipment' | 'shipped' | 'delivered'
 
 const FILTER_PILLS: { value: DeliveryFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'pending_shipment', label: 'Pending Shipment' },
+  { value: 'awaiting_shipment', label: 'Awaiting Shipment' },
   { value: 'shipped', label: 'Shipped' },
   { value: 'delivered', label: 'Delivered' },
 ]
@@ -30,10 +30,10 @@ const FULFILLMENT_OPTIONS: { value: '' | FulfillmentMethod; label: string }[] = 
   { value: 'independent_express', label: 'Ind. Express' },
 ]
 
-const STATUS_TO_BADGE: Record<OrderStatus, 'pending' | 'processing' | 'shipment' | 'shipped' | 'delivered' | 'cancelled'> = {
+const STATUS_TO_BADGE: Record<OrderStatus, 'pending' | 'processing' | 'awaiting' | 'shipped' | 'delivered' | 'cancelled'> = {
   pending: 'pending',
   processing: 'processing',
-  pending_shipment: 'shipment',
+  awaiting_shipment: 'awaiting',
   shipped: 'shipped',
   delivered: 'delivered',
   cancelled: 'cancelled',
@@ -68,7 +68,7 @@ export default function Deliveries() {
         supabase
           .from('orders')
           .select('*')
-          .eq('status', 'pending_shipment')
+          .eq('status', 'awaiting_shipment')
           .order('updated_at', { ascending: false }),
         supabase
           .from('orders')
@@ -100,7 +100,7 @@ export default function Deliveries() {
   /* ── derived ── */
   const today = new Date().toISOString().slice(0, 10)
 
-  const pendingShipmentCount = orders.filter((o) => o.status === 'pending_shipment').length
+  const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
   const shippedCount = orders.filter((o) => o.status === 'shipped').length
   const deliveredTodayCount = orders.filter(
     (o) => o.status === 'delivered' && o.delivered_at && o.delivered_at.slice(0, 10) === today
@@ -147,7 +147,7 @@ export default function Deliveries() {
           <div className="p-5">
             {/* Summary stats row */}
             <div className="grid grid-cols-4 gap-4 mb-5">
-              <StatCard label="Pending Shipment" value={pendingShipmentCount} dotColor="bg-orange" />
+              <StatCard label="Awaiting Shipment" value={awaitingShipmentCount} dotColor="bg-orange" />
               <StatCard label="Shipped / In Transit" value={shippedCount} dotColor="bg-purple" />
               <StatCard label="Delivered Today" value={deliveredTodayCount} dotColor="bg-green" />
               <StatCard label="Awaiting POD" value={awaitingPodCount} dotColor="bg-amber" />

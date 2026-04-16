@@ -8,7 +8,7 @@ import Button from '../ui/Button'
 const ALL_STATUSES: { value: OrderStatus; color: string }[] = [
   { value: 'pending', color: 'bg-amber' },
   { value: 'processing', color: 'bg-blue' },
-  { value: 'pending_shipment', color: 'bg-orange' },
+  { value: 'awaiting_shipment', color: 'bg-orange' },
   { value: 'shipped', color: 'bg-purple' },
   { value: 'delivered', color: 'bg-green' },
   { value: 'cancelled', color: 'bg-muted' },

@@ -19,7 +19,7 @@ interface StatusHistoryEntry {
 const STATUS_DOT_COLORS: Record<OrderStatus, string> = {
   pending: 'bg-amber',
   processing: 'bg-blue',
-  pending_shipment: 'bg-orange',
+  awaiting_shipment: 'bg-orange',
   shipped: 'bg-purple',
   delivered: 'bg-green',
   cancelled: 'bg-red',
@@ -75,9 +75,9 @@ export default function Dashboard() {
   // Metric calculations
   const pendingCount = orders.filter((o) => o.status === 'pending').length
   const processingCount = orders.filter((o) => o.status === 'processing').length
-  const pendingShipmentCount = orders.filter((o) => o.status === 'pending_shipment').length
+  const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
   const urgentCount = orders.filter(
-    (o) => ['pending', 'processing', 'pending_shipment'].includes(o.status) && hoursAgo(o.created_at) >= 24
+    (o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status) && hoursAgo(o.created_at) >= 24
   ).length
   const today = new Date().toISOString().slice(0, 10)
   const deliveredTodayCount = orders.filter(
@@ -86,7 +86,7 @@ export default function Dashboard() {
   const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
 
   // Channel breakdown
-  const channels: OrderChannel[] = ['direct', 'bwg', 'musgrave', 'offline']
+  const channels: OrderChannel[] = ['direct', 'bwg', 'musgrave', 'manual']
   const channelCounts = channels.map((ch) => ({
     channel: ch,
     count: orders.filter((o) => o.channel === ch).length,
@@ -169,8 +169,8 @@ export default function Dashboard() {
             dotColor="bg-blue"
           />
           <MetricCard
-            label="Pending Shipment"
-            value={pendingShipmentCount}
+            label="Awaiting Shipment"
+            value={awaitingShipmentCount}
             dotColor="bg-orange"
           />
           <MetricCard

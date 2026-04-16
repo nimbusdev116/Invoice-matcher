@@ -63,11 +63,11 @@ CREATE TABLE public.orders (
                           'mirakl', 'whatsapp', 'email', 'manual'
                         )),
   channel              TEXT CHECK (channel IN (
-                          'direct', 'bwg', 'musgrave', 'offline'
+                          'direct', 'bwg', 'musgrave', 'manual'
                         )),
   status               TEXT NOT NULL DEFAULT 'pending'
                         CHECK (status IN (
-                          'pending', 'processing', 'pending_shipment',
+                          'pending', 'processing', 'awaiting_shipment',
                           'shipped', 'delivered', 'cancelled'
                         )),
   fulfillment_method   TEXT CHECK (fulfillment_method IN (

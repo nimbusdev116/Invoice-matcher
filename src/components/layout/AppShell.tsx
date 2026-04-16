@@ -11,7 +11,7 @@ export default function AppShell() {
       const { count } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'processing', 'pending_shipment'])
+        .in('status', ['pending', 'processing', 'awaiting_shipment'])
 
       setPendingCount(count ?? 0)
     }

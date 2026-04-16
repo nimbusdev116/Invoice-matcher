@@ -93,14 +93,15 @@ async function zohoGet(endpoint, params = {}) {
 
 // ─── Classification (matches frontend classifySource) ────────────────────────
 
-function classifySource(referenceNumber) {
-  if (!referenceNumber || referenceNumber.trim() === '') {
-    return { source: 'manual', channel: 'offline' }
+function classifySource(referenceNumber, customerName) {
+  const ref = (referenceNumber || '').trim().toUpperCase()
+  const name = (customerName || '').toUpperCase()
+
+  if (ref.startsWith('BWG') || name.includes('BWG')) {
+    return { source: 'bwg_portal', channel: 'bwg' }
   }
-  const ref = referenceNumber.toUpperCase()
-  if (ref.startsWith('BWG')) return { source: 'bwg_portal', channel: 'bwg' }
   if (ref.startsWith('X')) return { source: 'musgrave_portal', channel: 'musgrave' }
-  if (ref.startsWith('INV')) return { source: 'mirakl', channel: 'musgrave' }
+  if (ref.startsWith('INV')) return { source: 'mirakl', channel: 'direct' }
   return { source: 'b2b_portal', channel: 'direct' }
 }
 
@@ -184,15 +185,17 @@ app.post('/api/zoho/sync', async (req, res) => {
             continue
           }
 
-          console.log(`Order ${so.salesorder_number}: order_status=${so.order_status}, status=${so.status}, date=${so.date}, ref=${so.reference_number}`)
+          console.log(`Order ${so.salesorder_number}: status=${so.status}, date=${so.date}, ref=${so.reference_number}, customer=${so.customer_name}`)
 
-          const { source, channel } = classifySource(so.reference_number)
-          const mappedStatus = mapZohoStatus(so.order_status, so.status)
-          console.log(`  → mapped to: status=${mappedStatus}, source=${source}, channel=${channel}`)
+          const { source, channel } = classifySource(so.reference_number, so.customer_name)
+          const { status: mappedStatus, invoiceId, invoiceNumber } = await resolveOrderStatus(so)
+          console.log(`  → mapped to: status=${mappedStatus}, source=${source}, channel=${channel}${invoiceId ? ', invoice=' + invoiceNumber : ''}`)
 
           const orderData = {
             so_number: so.salesorder_number,
             zoho_so_id: so.salesorder_id,
+            zoho_invoice_id: invoiceId,
+            zoho_invoice_number: invoiceNumber,
             reference_number: so.reference_number || null,
             customer_name: so.customer_name,
             customer_email: so.email || null,
@@ -262,16 +265,35 @@ app.post('/api/zoho/sync', async (req, res) => {
 
 // ─── Zoho Status Mapping ─────────────────────────────────────────────────────
 
-function mapZohoStatus(orderStatus, zohoStatus) {
+function mapZohoSOStatus(zohoStatus) {
   if (zohoStatus === 'void' || zohoStatus === 'cancelled') return 'cancelled'
-  if (zohoStatus === 'fulfilled' || zohoStatus === 'closed' || zohoStatus === 'sent') return 'delivered'
-  if (orderStatus === 'delivered') return 'delivered'
-  if (orderStatus === 'shipped' || zohoStatus === 'shipped') return 'shipped'
-  if (zohoStatus === 'confirmed') return 'pending_shipment'
+  if (zohoStatus === 'fulfilled' || zohoStatus === 'closed') return 'delivered'
+  if (zohoStatus === 'confirmed') return 'awaiting_shipment'
   if (zohoStatus === 'open') return 'processing'
   if (zohoStatus === 'draft' || zohoStatus === 'awaiting_approval') return 'pending'
-  console.warn('Unmapped Zoho status:', { orderStatus, zohoStatus })
+  console.warn('Unmapped Zoho SO status:', zohoStatus)
   return 'pending'
+}
+
+async function resolveOrderStatus(so) {
+  const baseStatus = mapZohoSOStatus(so.status)
+  if (baseStatus === 'awaiting_shipment' || baseStatus === 'processing') {
+    try {
+      const invoiceData = await zohoGet('/invoices', {
+        salesorder_id: so.salesorder_id,
+        per_page: 5,
+      })
+      const invoices = invoiceData.invoices || []
+      for (const inv of invoices) {
+        if (inv.status === 'sent' || inv.status === 'overdue' || inv.status === 'paid') {
+          return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number }
+        }
+      }
+    } catch (err) {
+      console.warn(`Invoice lookup failed for ${so.salesorder_number}:`, err.message)
+    }
+  }
+  return { status: baseStatus, invoiceId: null, invoiceNumber: null }
 }
 
 // ─── Zoho Connection Test ────────────────────────────────────────────────────

@@ -53,7 +53,7 @@ export default function BoardColumn({
   const config = CHANNEL_CONFIG[channel]
   const style = COL_STYLES[config.colorClass]
   const totalCount = allOrdersForChannel.filter((o) => BOARD_STATUSES.includes(o.status)).length
-  const needsZoho = channel === 'offline'
+  const needsZoho = channel === 'manual'
     ? allOrdersForChannel.filter((o) => !o.reference_number && BOARD_STATUSES.includes(o.status)).length
     : 0
 

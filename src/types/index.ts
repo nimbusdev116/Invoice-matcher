@@ -21,12 +21,12 @@ export type OrderSource =
   | 'email'
   | 'manual'
 
-export type OrderChannel = 'direct' | 'bwg' | 'musgrave' | 'offline'
+export type OrderChannel = 'direct' | 'bwg' | 'musgrave' | 'manual'
 
 export type OrderStatus =
   | 'pending'
   | 'processing'
-  | 'pending_shipment'
+  | 'awaiting_shipment'
   | 'shipped'
   | 'delivered'
   | 'cancelled'
@@ -80,7 +80,7 @@ export const SOURCE_LABELS: Record<OrderSource, string> = {
   b2b_portal: 'B2B Portal',
   bwg_portal: 'BWG Portal',
   musgrave_portal: 'Musgrave Portal',
-  mirakl: 'Mirakl',
+  mirakl: 'Odoo / Mirakl',
   whatsapp: 'WhatsApp',
   email: 'Email',
   manual: 'Manual',
@@ -99,7 +99,7 @@ export const SOURCE_COLORS: Record<OrderSource, string> = {
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Pending',
   processing: 'Processing',
-  pending_shipment: 'Pend. Shipment',
+  awaiting_shipment: 'Awaiting Shipment',
   shipped: 'Shipped',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
@@ -123,16 +123,16 @@ export const CHANNEL_CONFIG: Record<
   OrderChannel,
   { label: string; sub: string; colorClass: string }
 > = {
-  direct: { label: 'Direct (B2B)', sub: 'Online portal orders', colorClass: 'blue' },
+  direct: { label: 'Direct', sub: 'B2B + Odoo orders', colorClass: 'blue' },
   bwg: { label: 'BWG', sub: 'BWG portal orders', colorClass: 'purple' },
-  musgrave: { label: 'Musgrave', sub: 'Musgrave + Mirakl', colorClass: 'amber' },
-  offline: { label: 'Offline', sub: 'To be created in Zoho', colorClass: 'red' },
+  musgrave: { label: 'Musgrave', sub: 'Musgrave portal orders', colorClass: 'amber' },
+  manual: { label: 'Manual', sub: 'Manually created orders', colorClass: 'red' },
 }
 
-export const BOARD_STATUSES: OrderStatus[] = ['pending', 'processing', 'pending_shipment']
+export const BOARD_STATUSES: OrderStatus[] = ['pending', 'processing', 'awaiting_shipment']
 
 export const STATUS_FLOW: Partial<Record<OrderStatus, OrderStatus>> = {
   pending: 'processing',
-  processing: 'pending_shipment',
-  pending_shipment: 'shipped',
+  processing: 'awaiting_shipment',
+  awaiting_shipment: 'shipped',
 }

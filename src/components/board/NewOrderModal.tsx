@@ -36,10 +36,10 @@ const SOURCE_TO_CHANNEL: Record<OrderSource, OrderChannel> = {
   b2b_portal: 'direct',
   bwg_portal: 'bwg',
   musgrave_portal: 'musgrave',
-  mirakl: 'musgrave',
-  whatsapp: 'offline',
-  email: 'offline',
-  manual: 'offline',
+  mirakl: 'direct',
+  whatsapp: 'manual',
+  email: 'manual',
+  manual: 'manual',
 }
 
 export default function NewOrderModal({ open, onClose, onCreate }: Props) {

@@ -40,6 +40,11 @@ const icons = {
       <path d="M4.72.22a.75.75 0 011.06 0l1 1a.75.75 0 01-1.06 1.06L5.5 2.06v7.94a.75.75 0 01-1.5 0V2.06l-.22.22a.75.75 0 01-1.06-1.06l1-1zm5.56 1.28a.75.75 0 10-1.06 1.06l.22.22v7.94a.75.75 0 001.5 0V2.78l.22.22a.75.75 0 001.06-1.06l-1-1a.75.75 0 00-1.06 0l-.88.56zM1.5 13.75a.75.75 0 01.75-.75h11.5a.75.75 0 010 1.5H2.25a.75.75 0 01-.75-.75z" />
     </svg>
   ),
+  alerts: (
+    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 1.5c-1.736 0-3.369.674-4.596 1.897A6.448 6.448 0 001.5 8c0 1.736.674 3.369 1.904 4.603A6.448 6.448 0 008 14.5c1.736 0 3.369-.674 4.596-1.897A6.448 6.448 0 0014.5 8c0-1.736-.674-3.369-1.904-4.603A6.448 6.448 0 008 1.5zM8.75 4.75a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5zm-.75 6a.75.75 0 100-1.5.75.75 0 000 1.5z" />
+    </svg>
+  ),
   settings: (
     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
       <path d="M2 5.5a3.5 3.5 0 115.898 2.549 5.508 5.508 0 013.034 4.084.75.75 0 11-1.482.235 4.001 4.001 0 00-6.9 0 .75.75 0 01-1.482-.236A5.507 5.507 0 013.102 8.05 3.493 3.493 0 012 5.5zM5.5 4a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm5-.5a.75.75 0 01.75.75v1h1a.75.75 0 010 1.5h-1v1a.75.75 0 01-1.5 0v-1h-1a.75.75 0 010-1.5h1v-1A.75.75 0 0110.5 3.5z" />
@@ -56,6 +61,7 @@ export default function Sidebar({ pendingCount }: SidebarProps) {
     { label: 'All orders', to: '/all-orders', icon: icons.orders },
     { label: 'Deliveries', to: '/deliveries', icon: icons.deliveries },
     { label: 'POD tracker', to: '/pod-tracker', icon: icons.pod },
+    { label: 'Alerts', to: '/alerts', icon: icons.alerts },
   ]
 
   const settingsItems: NavItem[] = [

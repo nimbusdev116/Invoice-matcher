@@ -14,14 +14,14 @@ const PILLS: { mode: FilterMode; label: string; cls: string }[] = [
   { mode: 'all', label: 'All stages', cls: 'all' },
   { mode: 'pending', label: 'Pending', cls: 'pending' },
   { mode: 'processing', label: 'Processing', cls: 'processing' },
-  { mode: 'pending_shipment', label: 'Pending shipment', cls: 'shipment' },
+  { mode: 'awaiting_shipment', label: 'Awaiting shipment', cls: 'awaiting' },
 ]
 
 const PILL_ACTIVE: Record<string, string> = {
   all: 'bg-white/[0.07] text-text border-border2',
   pending: 'bg-amber-d text-amber border-amber/40',
   processing: 'bg-blue-d text-blue border-blue/40',
-  shipment: 'bg-orange-d text-orange border-orange/40',
+  awaiting: 'bg-orange-d text-orange border-orange/40',
 }
 
 export default function FilterBar({ filter, sort, onFilterChange, onSortChange }: Props) {
@@ -50,7 +50,7 @@ export default function FilterBar({ filter, sort, onFilterChange, onSortChange }
       >
         <option value="age-desc">Oldest first</option>
         <option value="age-asc">Newest first</option>
-        <option value="val-desc">Value: high → low</option>
+        <option value="val-desc">Value: high to low</option>
       </select>
     </div>
   )
