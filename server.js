@@ -770,4 +770,160 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`)
   console.log(`Supabase configured: ${!!supabase}`)
   console.log(`Zoho env vars: REFRESH_TOKEN=${!!process.env.ZOHO_REFRESH_TOKEN}, CLIENT_ID=${!!process.env.ZOHO_CLIENT_ID}, ORG_ID=${!!process.env.ZOHO_ORGANIZATION_ID}`)
+  console.log(`Telegram bot: ${!!process.env.TOKEN ? 'enabled' : 'disabled (no TOKEN env var)'}`)
+
+  if (process.env.TOKEN && supabase) {
+    startTelegramBot()
+  }
 })
+
+// ─── Telegram Bot (long polling) ───────────────────────────────────────────
+
+const TELEGRAM_TOKEN = process.env.TOKEN
+let telegramOffset = 0
+
+async function startTelegramBot() {
+  console.log('Telegram bot starting with long polling...')
+
+  const me = await tgApi('getMe')
+  if (me.ok) {
+    console.log(`Telegram bot connected: @${me.result.username}`)
+  }
+
+  while (true) {
+    try {
+      const data = await tgApi('getUpdates', {
+        offset: telegramOffset,
+        timeout: 30,
+        allowed_updates: JSON.stringify(['message']),
+      })
+
+      if (data.ok && data.result.length > 0) {
+        for (const update of data.result) {
+          telegramOffset = update.update_id + 1
+          await handleTelegramUpdate(update).catch(err =>
+            console.error('Telegram handler error:', err.message)
+          )
+        }
+      }
+    } catch (err) {
+      console.error('Telegram polling error:', err.message)
+      await new Promise(r => setTimeout(r, 5000))
+    }
+  }
+}
+
+async function tgApi(method, params = {}) {
+  const url = new URL(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`)
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, String(v))
+  }
+  const res = await fetch(url.toString())
+  return res.json()
+}
+
+async function downloadTelegramFile(fileId) {
+  const fileRes = await tgApi('getFile', { file_id: fileId })
+  if (!fileRes.ok) return null
+
+  const filePath = fileRes.result.file_path
+  const downloadRes = await fetch(
+    `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${filePath}`
+  )
+  if (!downloadRes.ok) return null
+
+  const buffer = Buffer.from(await downloadRes.arrayBuffer())
+  const ext = (filePath.split('.').pop() || '').toLowerCase()
+  const mimeMap = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+    ogg: 'audio/ogg', oga: 'audio/ogg', mp3: 'audio/mpeg', mp4: 'audio/mp4',
+  }
+
+  return {
+    base64: buffer.toString('base64'),
+    mimeType: mimeMap[ext] || 'application/octet-stream',
+  }
+}
+
+async function handleTelegramUpdate(update) {
+  const msg = update.message
+  if (!msg) return
+
+  const senderName = [msg.from?.first_name, msg.from?.last_name]
+    .filter(Boolean).join(' ') || 'Telegram User'
+  const chatId = String(msg.chat?.id || '')
+  const messageId = String(msg.message_id || '')
+
+  const text = msg.text || ''
+  const caption = msg.caption || ''
+  const notes = text || caption || 'Telegram message'
+
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase()
+  const soNumber = `MAN-${dateStr}-${rand}`
+
+  // 1. Create order
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .insert({
+      so_number: soNumber,
+      customer_name: senderName,
+      source: 'manual',
+      channel: 'manual',
+      status: 'pending',
+      value: 0,
+      currency: 'EUR',
+      notes,
+    })
+    .select()
+    .single()
+
+  if (orderErr) {
+    console.error('Telegram order insert failed:', orderErr.message)
+    return
+  }
+
+  // 2. Handle media attachments
+  let mediaType = null
+  let fileId = null
+
+  if (msg.photo && msg.photo.length > 0) {
+    mediaType = 'image'
+    fileId = msg.photo[msg.photo.length - 1].file_id
+  } else if (msg.voice) {
+    mediaType = 'audio'
+    fileId = msg.voice.file_id
+  } else if (msg.audio) {
+    mediaType = 'audio'
+    fileId = msg.audio.file_id
+  } else if (msg.document) {
+    const mime = (msg.document.mime_type || '').toLowerCase()
+    if (mime.startsWith('image/')) mediaType = 'image'
+    else if (mime.startsWith('audio/')) mediaType = 'audio'
+    else mediaType = 'document'
+    fileId = msg.document.file_id
+  }
+
+  if (fileId && mediaType) {
+    const file = await downloadTelegramFile(fileId)
+    if (file) {
+      const { error: mediaErr } = await supabase
+        .from('order_media')
+        .insert({
+          order_id: order.id,
+          media_type: mediaType,
+          file_id: fileId,
+          file_data: file.base64,
+          mime_type: file.mimeType,
+          note: caption || text || null,
+          telegram_chat_id: chatId,
+          telegram_message_id: messageId,
+        })
+
+      if (mediaErr) console.error('Telegram media insert failed:', mediaErr.message)
+    }
+  }
+
+  console.log(`Telegram → ${soNumber} from ${senderName} [${mediaType || 'text'}]`)
+}

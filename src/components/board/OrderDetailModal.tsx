@@ -143,6 +143,13 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
                     className="rounded-lg border border-border max-h-48 object-contain mb-2"
                   />
                 )}
+                {m.media_type === 'audio' && (
+                  <audio
+                    controls
+                    src={m.file_url || `/api/media/${m.id}`}
+                    className="w-full mb-2"
+                  />
+                )}
                 {m.analysis && (
                   <p className="text-xs text-muted/80 leading-relaxed whitespace-pre-wrap">{m.analysis}</p>
                 )}
