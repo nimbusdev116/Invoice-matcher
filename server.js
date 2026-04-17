@@ -252,20 +252,60 @@ app.post('/api/zoho/sync', async (req, res) => {
       await setWatermark(syncStartedAt)
     }
 
+    // ── Phase 2: Check invoices for ALL awaiting_shipment orders ──
+    let totalShipped = 0
+    console.log('Phase 2: Checking invoices for all awaiting_shipment orders...')
+    const { data: awaitingOrders } = await supabase
+      .from('orders')
+      .select('id, so_number, zoho_so_id, status')
+      .eq('status', 'awaiting_shipment')
+
+    for (const order of awaitingOrders || []) {
+      if (!order.zoho_so_id) continue
+      try {
+        const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
+        const invoices = detail.salesorder?.invoices || []
+        for (const inv of invoices) {
+          const invStatus = (inv.status || '').toLowerCase()
+          if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
+            await supabase
+              .from('orders')
+              .update({
+                status: 'shipped',
+                zoho_invoice_id: inv.invoice_id,
+                zoho_invoice_number: inv.invoice_number,
+              })
+              .eq('id', order.id)
+            console.log(`  ${order.so_number}: invoice ${inv.invoice_number} status=${invStatus} → shipped`)
+            totalShipped++
+            break
+          }
+        }
+        if (invoices.length === 0) {
+          console.log(`  ${order.so_number}: no invoices yet`)
+        }
+      } catch (err) {
+        console.warn(`  Invoice check failed for ${order.so_number}:`, err.message)
+        errors.push(`inv-check ${order.so_number}: ${err.message}`)
+      }
+    }
+    console.log(`Phase 2 done: ${totalShipped} orders moved to shipped out of ${(awaitingOrders || []).length} awaiting_shipment`)
+
     await supabase.from('zoho_sync_log').insert({
       operation: 'fetch_orders',
       status: errors.length === 0 ? 'success' : errors.length < totalSynced ? 'partial' : 'error',
-      records_affected: totalSynced,
+      records_affected: totalSynced + totalShipped,
       error_message: errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
       completed_at: new Date().toISOString(),
     })
 
-    console.log(`Sync done: synced=${totalSynced}, skipped=${totalSkipped}, errors=${errors.length}`)
+    console.log(`Sync done: synced=${totalSynced}, skipped=${totalSkipped}, shipped=${totalShipped}, errors=${errors.length}`)
 
     res.json({
       success: true,
       synced: totalSynced,
       skipped: totalSkipped,
+      shipped: totalShipped,
       watermark,
       errors: errors.slice(0, 10),
     })

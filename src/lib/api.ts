@@ -4,6 +4,7 @@ export async function zohoSync(opts?: { full?: boolean }): Promise<{
   success: boolean
   synced: number
   skipped?: number
+  shipped?: number
   errors: string[]
 }> {
   const url = opts?.full

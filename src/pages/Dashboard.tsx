@@ -128,7 +128,10 @@ export default function Dashboard() {
                 const result = await zohoSync()
                 await fetchData()
                 setSyncing(false)
-                alert(`Synced ${result.synced} orders from Zoho Books${result.errors.length ? `\n${result.errors.length} errors` : ''}`)
+                const parts = [`Synced ${result.synced} new orders`]
+                if (result.shipped) parts.push(`${result.shipped} moved to Shipped`)
+                if (result.errors?.length) parts.push(`${result.errors.length} errors`)
+                alert(parts.join('\n'))
               } catch (err) {
                 setSyncing(false)
                 alert(`Sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
