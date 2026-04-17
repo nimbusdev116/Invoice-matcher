@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Order, OrderStatus, FulfillmentMethod, OrderMedia } from '../../types'
-import { STATUS_LABELS, FULFILLMENT_LABELS, FULFILLMENT_ICONS } from '../../types'
+import { STATUS_LABELS, FULFILLMENT_LABELS } from '../../types'
+import FulfillmentIcon from '../ui/FulfillmentIcon'
 import { formatEur, ageLabel } from '../../lib/utils'
 import { supabase } from '../../lib/supabase'
 import Modal from '../ui/Modal'
@@ -114,7 +115,7 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
                   : 'border-border hover:bg-s3'
               }`}
             >
-              <div className="text-lg mb-0.5">{FULFILLMENT_ICONS[f]}</div>
+              <div className="mb-0.5 flex justify-center text-muted"><FulfillmentIcon method={f} /></div>
               <div className="text-[11px] font-semibold text-text">{FULFILLMENT_LABELS[f]}</div>
             </button>
           ))}

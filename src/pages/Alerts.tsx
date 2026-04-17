@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Order, OrderStatus } from '../types'
 import { STATUS_LABELS, CHANNEL_CONFIG } from '../types'
@@ -21,9 +22,25 @@ const CHANNEL_DOT: Record<string, string> = {
   manual: 'bg-red',
 }
 
+type SortField = 'so_number' | 'customer_name' | 'channel' | 'status' | 'created_at' | 'value' | 'age'
+type SortDir = 'asc' | 'desc'
+
+const COLUMNS: { key: SortField; label: string; align?: 'right' }[] = [
+  { key: 'so_number', label: 'SO Number' },
+  { key: 'customer_name', label: 'Customer' },
+  { key: 'channel', label: 'Channel' },
+  { key: 'status', label: 'Status' },
+  { key: 'created_at', label: 'Order Date' },
+  { key: 'value', label: 'Value', align: 'right' },
+  { key: 'age', label: 'Age' },
+]
+
 export default function Alerts() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const navigate = useNavigate()
 
   useEffect(() => {
     async function load() {
@@ -43,9 +60,51 @@ export default function Alerts() {
 
   const now = Date.now()
   const threeDaysMs = 3 * 24 * 60 * 60 * 1000
-  const staleOrders = orders.filter(
-    (o) => now - new Date(o.created_at).getTime() > threeDaysMs
-  )
+
+  const staleOrders = useMemo(() => {
+    const stale = orders.filter(
+      (o) => now - new Date(o.created_at).getTime() > threeDaysMs
+    )
+
+    return stale.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'so_number':
+          cmp = (a.so_number || '').localeCompare(b.so_number || '')
+          break
+        case 'customer_name':
+          cmp = a.customer_name.localeCompare(b.customer_name)
+          break
+        case 'channel':
+          cmp = a.channel.localeCompare(b.channel)
+          break
+        case 'status':
+          cmp = a.status.localeCompare(b.status)
+          break
+        case 'created_at':
+        case 'age':
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'value':
+          cmp = Number(a.value) - Number(b.value)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [orders, sortField, sortDir, now, threeDaysMs])
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
+
+  function handleRowClick(order: Order) {
+    navigate('/orders', { state: { highlightOrderId: order.id } })
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -59,11 +118,11 @@ export default function Alerts() {
           )}
         </div>
         <span className="text-[11px] text-muted/60">
-          Orders stuck for 3+ days
+          Orders stuck for 3+ days — click a row to view
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted">
             <div className="flex items-center gap-2.5">
@@ -88,13 +147,28 @@ export default function Alerts() {
           <table className="w-full border-collapse min-w-[800px]">
             <thead className="sticky top-0 z-10">
               <tr className="bg-s1 border-b border-border">
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">SO Number</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">Customer</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">Channel</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">Status</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">Order Date</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-right">Value</th>
-                <th className="text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left">Age</th>
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className={`text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 cursor-pointer hover:text-text transition-colors select-none ${
+                      col.align === 'right' ? 'text-right' : 'text-left'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      {sortField === col.key && (
+                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+                          {sortDir === 'asc' ? (
+                            <path d="M6 2l4 5H2z" />
+                          ) : (
+                            <path d="M6 10l4-5H2z" />
+                          )}
+                        </svg>
+                      )}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -103,7 +177,8 @@ export default function Alerts() {
                 return (
                   <tr
                     key={order.id}
-                    className={`border-b border-border/50 hover:bg-red/[0.03] transition-colors ${i % 2 === 1 ? 'bg-s1/30' : ''}`}
+                    onClick={() => handleRowClick(order)}
+                    className={`border-b border-border/50 hover:bg-red/[0.03] transition-colors cursor-pointer ${i % 2 === 1 ? 'bg-s1/30' : ''}`}
                     style={{ animation: `fadeIn ${0.1 + i * 0.02}s ease-out` }}
                   >
                     <td className="text-[13px] py-3 px-4 font-medium whitespace-nowrap">

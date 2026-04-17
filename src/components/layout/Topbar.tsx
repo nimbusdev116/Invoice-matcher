@@ -1,3 +1,5 @@
+import { useShell } from './AppShell'
+
 interface TopbarProps {
   title: string
   onRefresh?: () => void
@@ -6,9 +8,30 @@ interface TopbarProps {
 }
 
 export default function Topbar({ title, onRefresh, onNewOrder, lastUpdated }: TopbarProps) {
+  const { sidebarOpen, toggleSidebar } = useShell()
+
   return (
     <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
+        <button
+          onClick={toggleSidebar}
+          className="flex items-center justify-center w-7 h-7 rounded-lg border border-border hover:border-border2 text-muted hover:text-text transition-all cursor-pointer"
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {sidebarOpen ? (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+              <path d="M15 9l-3 3 3 3" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+              <path d="M15 9l3 3-3 3" />
+            </svg>
+          )}
+        </button>
         <h1 className="text-sm font-semibold text-text">{title}</h1>
         {lastUpdated && (
           <span className="text-[11px] text-muted/60">{lastUpdated}</span>

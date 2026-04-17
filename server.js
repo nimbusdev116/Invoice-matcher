@@ -646,6 +646,90 @@ app.get('/api/zoho/test', async (req, res) => {
   }
 })
 
+// ─── Manual Order Endpoint (called by n8n automation) ──────────────────────
+
+app.post('/api/manual-order', express.json({ limit: '10mb' }), async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
+  const apiKey = req.headers['x-api-key']
+  if (!process.env.MANUAL_ORDER_API_KEY || apiKey !== process.env.MANUAL_ORDER_API_KEY) {
+    return res.status(401).json({ error: 'Invalid API key' })
+  }
+
+  try {
+    const {
+      so_number, customer_name, notes,
+      media_type, file_url, file_data,
+      analysis, telegram_chat_id, telegram_message_id,
+    } = req.body
+
+    // 1. Insert order
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .insert({
+        so_number: so_number || `MAN-${Date.now().toString(36).toUpperCase()}`,
+        customer_name: customer_name || 'Telegram User',
+        source: 'manual',
+        channel: 'manual',
+        status: 'pending',
+        value: 0,
+        currency: 'EUR',
+        notes: notes || null,
+      })
+      .select()
+      .single()
+
+    if (orderErr) throw orderErr
+
+    // 2. Handle media if present
+    let mediaId = null
+    const hasMedia = file_url || file_data
+
+    if (hasMedia) {
+      let storedBase64 = file_data || null
+      let mimeType = 'image/jpeg'
+
+      // If URL provided (e.g. Telegram file URL), fetch and convert to base64
+      if (file_url && !file_data) {
+        try {
+          const imgRes = await fetch(file_url)
+          if (imgRes.ok) {
+            const buffer = Buffer.from(await imgRes.arrayBuffer())
+            storedBase64 = buffer.toString('base64')
+            mimeType = imgRes.headers.get('content-type') || 'image/jpeg'
+          }
+        } catch (fetchErr) {
+          console.error('Failed to fetch media from URL:', fetchErr.message)
+        }
+      }
+
+      if (storedBase64) {
+        const { data: media, error: mediaErr } = await supabase
+          .from('order_media')
+          .insert({
+            order_id: order.id,
+            media_type: media_type || 'image',
+            file_data: storedBase64,
+            mime_type: mimeType,
+            analysis: analysis || null,
+            telegram_chat_id: telegram_chat_id || null,
+            telegram_message_id: telegram_message_id || null,
+          })
+          .select('id')
+          .single()
+
+        if (mediaErr) console.error('Media insert error:', mediaErr)
+        else mediaId = media.id
+      }
+    }
+
+    res.json({ success: true, order_id: order.id, media_id: mediaId })
+  } catch (err) {
+    console.error('Manual order error:', err)
+    res.status(500).json({ error: err.message || 'Failed to create manual order' })
+  }
+})
+
 // ─── Media Endpoint (serves binary from order_media) ───────────────────────
 
 app.get('/api/media/:id', async (req, res) => {

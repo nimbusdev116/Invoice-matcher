@@ -112,12 +112,6 @@ export const FULFILLMENT_LABELS: Record<FulfillmentMethod, string> = {
   independent_express: 'Ind. Express',
 }
 
-export const FULFILLMENT_ICONS: Record<FulfillmentMethod, string> = {
-  collection: '\u{1F3ED}',
-  own_van: '\u{1F690}',
-  an_post: '\u{1F4E6}',
-  independent_express: '\u{1F6E0}',
-}
 
 export const CHANNEL_CONFIG: Record<
   OrderChannel,

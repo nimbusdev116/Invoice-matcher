@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, createContext, useContext, useCallback } from 'react'
 import { Outlet } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Sidebar from './Sidebar'
 
+interface ShellContext { sidebarOpen: boolean; toggleSidebar: () => void }
+const ShellCtx = createContext<ShellContext>({ sidebarOpen: true, toggleSidebar: () => {} })
+export function useShell() { return useContext(ShellCtx) }
+
 export default function AppShell() {
   const [pendingCount, setPendingCount] = useState(0)
   const [alertCount, setAlertCount] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
 
   useEffect(() => {
     async function fetchCounts() {
@@ -38,11 +44,15 @@ export default function AppShell() {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
-      <Sidebar pendingCount={pendingCount} alertCount={alertCount} />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <Outlet />
-      </main>
-    </div>
+    <ShellCtx.Provider value={{ sidebarOpen, toggleSidebar }}>
+      <div className="flex h-screen overflow-hidden bg-bg">
+        <div className={`shrink-0 transition-all duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'} overflow-hidden`}>
+          <Sidebar pendingCount={pendingCount} alertCount={alertCount} />
+        </div>
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    </ShellCtx.Provider>
   )
 }

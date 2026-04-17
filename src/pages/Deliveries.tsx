@@ -7,8 +7,8 @@ import {
   type FulfillmentMethod,
   STATUS_LABELS,
   FULFILLMENT_LABELS,
-  FULFILLMENT_ICONS,
 } from '../types'
+import FulfillmentIcon from '../components/ui/FulfillmentIcon'
 import Badge from '../components/ui/Badge'
 import OrderDetailModal from '../components/board/OrderDetailModal'
 
@@ -100,7 +100,7 @@ export default function Deliveries() {
     (o) => o.status === 'delivered' && o.delivered_at && o.delivered_at.slice(0, 10) === today
   ).length
   const awaitingPodCount = orders.filter(
-    (o) => o.pod_required && !o.pod_received && o.status === 'shipped'
+    (o) => !o.pod_received && o.status === 'shipped'
   ).length
 
   const filtered = useMemo(() => {
@@ -284,7 +284,7 @@ function DeliveryCard({ order, onClick, index }: { order: Order; onClick?: () =>
       <div className="flex flex-wrap items-center gap-4 text-[11px]">
         {order.fulfillment_method ? (
           <span className="flex items-center gap-1 text-muted">
-            <span>{FULFILLMENT_ICONS[order.fulfillment_method]}</span>
+            <span className="inline-flex"><FulfillmentIcon method={order.fulfillment_method} /></span>
             {FULFILLMENT_LABELS[order.fulfillment_method]}
           </span>
         ) : (

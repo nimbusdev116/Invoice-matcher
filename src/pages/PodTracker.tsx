@@ -5,9 +5,9 @@ import {
   type Order,
   type FulfillmentMethod,
   FULFILLMENT_LABELS,
-  FULFILLMENT_ICONS,
 } from '../types'
 import Button from '../components/ui/Button'
+import FulfillmentIcon from '../components/ui/FulfillmentIcon'
 import { useToast } from '../contexts/ToastContext'
 
 function formatDate(iso: string | null): string {
@@ -66,17 +66,17 @@ export default function PodTracker() {
   }
 
   const awaitingPod = useMemo(
-    () => orders.filter((o) => o.pod_required && !o.pod_received),
+    () => orders.filter((o) => !o.pod_received),
     [orders]
   )
 
   const podReceived = useMemo(
-    () => orders.filter((o) => o.pod_required && o.pod_received).slice(0, 20),
+    () => orders.filter((o) => o.pod_received).slice(0, 20),
     [orders]
   )
 
   const awaitingPodCount = awaitingPod.length
-  const podReceivedCount = orders.filter((o) => o.pod_required && o.pod_received).length
+  const podReceivedCount = orders.filter((o) => o.pod_received).length
   const totalCourierCount = orders.length
 
   return (
@@ -134,7 +134,7 @@ export default function PodTracker() {
                           </span>
                           {order.fulfillment_method && (
                             <span className="text-[11px] text-muted">
-                              <span className="mr-1">{FULFILLMENT_ICONS[order.fulfillment_method]}</span>
+                              <span className="mr-1 inline-flex"><FulfillmentIcon method={order.fulfillment_method} /></span>
                               {FULFILLMENT_LABELS[order.fulfillment_method]}
                             </span>
                           )}
