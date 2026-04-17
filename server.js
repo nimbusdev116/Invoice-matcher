@@ -660,7 +660,7 @@ app.post('/api/manual-order', express.json({ limit: '10mb' }), async (req, res) 
     const {
       so_number, customer_name, notes,
       media_type, file_url, file_data,
-      analysis, telegram_chat_id, telegram_message_id,
+      analysis, note, telegram_chat_id, telegram_message_id,
     } = req.body
 
     // 1. Insert order
@@ -712,6 +712,7 @@ app.post('/api/manual-order', express.json({ limit: '10mb' }), async (req, res) 
             file_data: storedBase64,
             mime_type: mimeType,
             analysis: analysis || null,
+            note: note || null,
             telegram_chat_id: telegram_chat_id || null,
             telegram_message_id: telegram_message_id || null,
           })

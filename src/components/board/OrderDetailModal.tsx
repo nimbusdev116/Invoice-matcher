@@ -149,6 +149,9 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
                 {m.transcript && (
                   <p className="text-xs text-muted/80 leading-relaxed mt-1 italic">{m.transcript}</p>
                 )}
+                {m.note && (
+                  <p className="text-xs text-text/70 leading-relaxed mt-1.5 pt-1.5 border-t border-border/50">{m.note}</p>
+                )}
               </div>
             ))}
           </div>

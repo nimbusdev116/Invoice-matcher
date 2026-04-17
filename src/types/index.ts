@@ -133,6 +133,7 @@ export interface OrderMedia {
   mime_type: string | null
   analysis: string | null
   transcript: string | null
+  note: string | null
   telegram_chat_id: string | null
   telegram_message_id: string | null
   created_at: string
