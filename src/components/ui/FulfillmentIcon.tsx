@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import type { FulfillmentMethod } from '../../types'
 
-const icons: Record<FulfillmentMethod, JSX.Element> = {
+const icons: Record<FulfillmentMethod, ReactNode> = {
   collection: (
     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 21h18" />
