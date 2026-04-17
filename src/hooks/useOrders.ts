@@ -114,8 +114,12 @@ export function useOrders() {
       reference_number?: string | null
       notes?: string | null
     }) => {
-      const count = orders.length
-      const so_number = `SO-${String(count + 1001).padStart(5, '0')}`
+      const { count, error: countErr } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+
+      if (countErr) throw countErr
+      const so_number = `SO-${String((count ?? 0) + 1001).padStart(5, '0')}`
 
       const { data, error } = await supabase
         .from('orders')
@@ -131,7 +135,7 @@ export function useOrders() {
       if (error) throw error
       return data as Order
     },
-    [orders.length]
+    []
   )
 
   return {

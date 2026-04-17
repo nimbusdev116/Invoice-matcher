@@ -4,6 +4,7 @@ import { zohoSync } from '../lib/api'
 import type { Order, OrderChannel, OrderStatus } from '../types'
 import { CHANNEL_CONFIG, STATUS_LABELS } from '../types'
 import { formatEur, hoursAgo, ageLabel } from '../lib/utils'
+import { useToast } from '../contexts/ToastContext'
 import Toggle from '../components/ui/Toggle'
 
 interface StatusHistoryEntry {
@@ -45,6 +46,7 @@ export default function Dashboard() {
     return saved === 'true'
   })
   const [liveUpdates, setLiveUpdates] = useState(true)
+  const { showToast } = useToast()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -90,10 +92,13 @@ export default function Dashboard() {
       try {
         await zohoSync()
         await fetchData()
-      } catch {}
+      } catch (err) {
+        console.error('Auto-sync failed:', err)
+        showToast(err instanceof Error ? err.message : 'Auto-sync failed', 'error')
+      }
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [autoSync, fetchData])
+  }, [autoSync, fetchData, showToast])
 
   const handleSync = async (full = false) => {
     setSyncing(true)
