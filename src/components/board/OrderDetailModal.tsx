@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import type { Order, OrderStatus, FulfillmentMethod } from '../../types'
+import type { Order, OrderStatus, FulfillmentMethod, OrderMedia } from '../../types'
 import { STATUS_LABELS, FULFILLMENT_LABELS, FULFILLMENT_ICONS } from '../../types'
 import { formatEur, ageLabel } from '../../lib/utils'
+import { supabase } from '../../lib/supabase'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 
@@ -28,6 +29,7 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
   const [status, setStatus] = useState<OrderStatus>('pending')
   const [fulfillment, setFulfillment] = useState<FulfillmentMethod | null>(null)
   const [notes, setNotes] = useState('')
+  const [media, setMedia] = useState<OrderMedia[]>([])
 
   useEffect(() => {
     if (order) {
@@ -35,6 +37,16 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
       setFulfillment(order.fulfillment_method)
       setNotes(order.notes || '')
     }
+  }, [order])
+
+  useEffect(() => {
+    if (!order) { setMedia([]); return }
+    supabase
+      .from('order_media')
+      .select('*')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setMedia((data as OrderMedia[]) || []))
   }, [order])
 
   if (!order) return null
@@ -109,13 +121,47 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
         </div>
       </div>
 
+      {media.length > 0 && (
+        <div className="mb-3.5">
+          <label className="text-[11px] text-muted uppercase tracking-wider mb-1.5 block">Attachments</label>
+          <div className="flex flex-col gap-2">
+            {media.map((m) => (
+              <div key={m.id} className="bg-s2 border border-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue/12 text-blue">
+                    {m.media_type}
+                  </span>
+                  <span className="text-[10px] text-muted">
+                    {new Date(m.created_at).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                {m.file_url && (
+                  <img
+                    src={m.file_url}
+                    alt="Attachment"
+                    className="rounded-lg border border-border max-h-48 object-contain mb-2"
+                  />
+                )}
+                {m.analysis && (
+                  <p className="text-xs text-muted/80 leading-relaxed whitespace-pre-wrap">{m.analysis}</p>
+                )}
+                {m.transcript && (
+                  <p className="text-xs text-muted/80 leading-relaxed mt-1 italic">{m.transcript}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="text-[11px] text-muted uppercase tracking-wider mb-1.5 block">Notes</label>
-        <input
+        <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add note or instruction..."
-          className="w-full bg-s2 border border-border rounded-md py-2 px-3 text-text text-[13px] outline-none focus:border-green/50 transition"
+          rows={3}
+          className="w-full bg-s2 border border-border rounded-md py-2 px-3 text-text text-[13px] outline-none focus:border-green/50 transition resize-none"
         />
       </div>
     </Modal>

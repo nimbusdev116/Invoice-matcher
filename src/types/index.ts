@@ -129,6 +129,19 @@ export const CHANNEL_CONFIG: Record<
   manual: { label: 'Manual', sub: 'Manually created orders', colorClass: 'red' },
 }
 
+export interface OrderMedia {
+  id: string
+  order_id: string
+  media_type: 'image' | 'audio' | 'document'
+  file_id: string | null
+  file_url: string | null
+  analysis: string | null
+  transcript: string | null
+  telegram_chat_id: string | null
+  telegram_message_id: string | null
+  created_at: string
+}
+
 export const BOARD_STATUSES: OrderStatus[] = ['pending', 'processing', 'awaiting_shipment']
 
 export const STATUS_FLOW: Partial<Record<OrderStatus, OrderStatus>> = {
