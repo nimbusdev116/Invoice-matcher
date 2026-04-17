@@ -252,44 +252,64 @@ app.post('/api/zoho/sync', async (req, res) => {
       await setWatermark(syncStartedAt)
     }
 
-    // ── Phase 2: Check invoices for ALL awaiting_shipment orders ──
+    // ── Phase 2: Check invoices for all processing + awaiting_shipment orders ──
     let totalShipped = 0
-    console.log('Phase 2: Checking invoices for all awaiting_shipment orders...')
-    const { data: awaitingOrders } = await supabase
+    let totalAdvanced = 0
+    console.log('Phase 2: Checking invoices for processing + awaiting_shipment orders...')
+    const { data: activeOrders } = await supabase
       .from('orders')
       .select('id, so_number, zoho_so_id, status')
-      .eq('status', 'awaiting_shipment')
+      .in('status', ['processing', 'awaiting_shipment'])
 
-    for (const order of awaitingOrders || []) {
+    for (const order of activeOrders || []) {
       if (!order.zoho_so_id) continue
       try {
         const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
         const invoices = detail.salesorder?.invoices || []
+        console.log(`  ${order.so_number} (${order.status}): ${invoices.length} invoice(s)`)
+
+        if (invoices.length === 0) {
+          if (order.status !== 'processing') {
+            await supabase.from('orders').update({ status: 'processing' }).eq('id', order.id)
+            console.log(`    → processing (no invoices)`)
+            totalAdvanced++
+          }
+          continue
+        }
+
+        let shipped = false
         for (const inv of invoices) {
           const invStatus = (inv.status || '').toLowerCase()
+          console.log(`    inv ${inv.invoice_number}: status=${invStatus}`)
           if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
-            await supabase
-              .from('orders')
-              .update({
-                status: 'shipped',
-                zoho_invoice_id: inv.invoice_id,
-                zoho_invoice_number: inv.invoice_number,
-              })
-              .eq('id', order.id)
-            console.log(`  ${order.so_number}: invoice ${inv.invoice_number} status=${invStatus} → shipped`)
+            await supabase.from('orders').update({
+              status: 'shipped',
+              zoho_invoice_id: inv.invoice_id,
+              zoho_invoice_number: inv.invoice_number,
+            }).eq('id', order.id)
+            console.log(`    → shipped`)
             totalShipped++
+            shipped = true
             break
           }
         }
-        if (invoices.length === 0) {
-          console.log(`  ${order.so_number}: no invoices yet`)
+
+        if (!shipped && order.status !== 'awaiting_shipment') {
+          const firstInv = invoices[0]
+          await supabase.from('orders').update({
+            status: 'awaiting_shipment',
+            zoho_invoice_id: firstInv.invoice_id,
+            zoho_invoice_number: firstInv.invoice_number,
+          }).eq('id', order.id)
+          console.log(`    → awaiting_shipment (invoice exists but not sent)`)
+          totalAdvanced++
         }
       } catch (err) {
         console.warn(`  Invoice check failed for ${order.so_number}:`, err.message)
         errors.push(`inv-check ${order.so_number}: ${err.message}`)
       }
     }
-    console.log(`Phase 2 done: ${totalShipped} orders moved to shipped out of ${(awaitingOrders || []).length} awaiting_shipment`)
+    console.log(`Phase 2 done: ${totalShipped} shipped, ${totalAdvanced} advanced, out of ${(activeOrders || []).length} checked`)
 
     await supabase.from('zoho_sync_log').insert({
       operation: 'fetch_orders',
@@ -325,46 +345,45 @@ app.post('/api/zoho/sync', async (req, res) => {
 
 // ─── Zoho Status Mapping ─────────────────────────────────────────────────────
 
-function mapZohoSOStatus(so) {
-  const status = (so.status || '').toLowerCase()
-  const orderStatus = (so.order_status || '').toLowerCase()
-  const invoicedStatus = (so.invoiced_status || '').toLowerCase()
-  const shippedStatus = (so.shipped_status || '').toLowerCase()
-
-  if (status === 'void' || status === 'cancelled') return 'cancelled'
-  if (status === 'fulfilled' || status === 'closed') return 'delivered'
-  if (shippedStatus === 'shipped') return 'shipped'
-  if (invoicedStatus === 'invoiced' || invoicedStatus === 'partially_invoiced') return 'awaiting_shipment'
-  if (orderStatus === 'confirmed' || status === 'confirmed') return 'awaiting_shipment'
-  if (status === 'open') return 'processing'
-  if (status === 'draft' || status === 'awaiting_approval') return 'pending'
-  console.warn('Unmapped Zoho SO status:', status, 'order_status:', orderStatus)
-  return 'pending'
-}
-
 async function resolveOrderStatus(so) {
-  const baseStatus = mapZohoSOStatus(so)
-  const invoicedStatus = (so.invoiced_status || '').toLowerCase()
-  const shouldCheckInvoice = baseStatus === 'awaiting_shipment' || baseStatus === 'processing' ||
-    invoicedStatus === 'invoiced' || invoicedStatus === 'partially_invoiced'
+  const status = (so.status || '').toLowerCase()
 
-  if (shouldCheckInvoice) {
-    try {
-      const detail = await zohoGet(`/salesorders/${so.salesorder_id}`)
-      const invoices = detail.salesorder?.invoices || []
-      console.log(`  invoice lookup for ${so.salesorder_number}: found ${invoices.length} invoice(s)`)
-      for (const inv of invoices) {
-        const invStatus = (inv.status || '').toLowerCase()
-        console.log(`    inv ${inv.invoice_number}: status=${invStatus}`)
-        if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
-          return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number }
-        }
-      }
-    } catch (err) {
-      console.warn(`Invoice lookup failed for ${so.salesorder_number}:`, err.message)
-    }
+  if (status === 'void' || status === 'cancelled') return { status: 'cancelled', invoiceId: null, invoiceNumber: null }
+  if (status === 'fulfilled' || status === 'closed') return { status: 'delivered', invoiceId: null, invoiceNumber: null }
+  if (status === 'draft' || status === 'awaiting_approval') return { status: 'pending', invoiceId: null, invoiceNumber: null }
+
+  // SO is active (open/confirmed) — check invoices to determine processing vs awaiting_shipment vs shipped
+  const invoicedStatus = (so.invoiced_status || '').toLowerCase()
+
+  if (!invoicedStatus || invoicedStatus === 'not_invoiced') {
+    return { status: 'processing', invoiceId: null, invoiceNumber: null }
   }
-  return { status: baseStatus, invoiceId: null, invoiceNumber: null }
+
+  // Invoice exists — fetch SO detail to check individual invoice statuses
+  try {
+    const detail = await zohoGet(`/salesorders/${so.salesorder_id}`)
+    const invoices = detail.salesorder?.invoices || []
+    console.log(`  invoice lookup for ${so.salesorder_number}: found ${invoices.length} invoice(s)`)
+
+    if (invoices.length === 0) {
+      return { status: 'processing', invoiceId: null, invoiceNumber: null }
+    }
+
+    for (const inv of invoices) {
+      const invStatus = (inv.status || '').toLowerCase()
+      console.log(`    inv ${inv.invoice_number}: status=${invStatus}`)
+      if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
+        return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number }
+      }
+    }
+
+    // Invoice exists but not yet sent → awaiting_shipment
+    const firstInv = invoices[0]
+    return { status: 'awaiting_shipment', invoiceId: firstInv.invoice_id, invoiceNumber: firstInv.invoice_number }
+  } catch (err) {
+    console.warn(`Invoice lookup failed for ${so.salesorder_number}:`, err.message)
+    return { status: 'processing', invoiceId: null, invoiceNumber: null }
+  }
 }
 
 // ─── Zoho Connection Test ────────────────────────────────────────────────────

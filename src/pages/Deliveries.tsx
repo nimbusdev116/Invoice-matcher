@@ -10,6 +10,7 @@ import {
   FULFILLMENT_ICONS,
 } from '../types'
 import Badge from '../components/ui/Badge'
+import OrderDetailModal from '../components/board/OrderDetailModal'
 
 /* ─── constants ─── */
 
@@ -52,6 +53,8 @@ export default function Deliveries() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<DeliveryFilter>('all')
   const [fulfillmentFilter, setFulfillmentFilter] = useState<'' | FulfillmentMethod>('')
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
 
   /* ── fetch ── */
   useEffect(() => {
@@ -122,6 +125,21 @@ export default function Deliveries() {
 
     return list
   }, [orders, statusFilter, fulfillmentFilter])
+
+  async function handleSaveOrder(
+    id: string,
+    updates: { status: OrderStatus; fulfillment_method: FulfillmentMethod | null; notes: string | null },
+  ) {
+    await supabase.from('orders').update(updates).eq('id', id)
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)))
+    setShowDetail(false)
+  }
+
+  async function handleCancelOrder(id: string) {
+    await supabase.from('orders').update({ status: 'cancelled' as OrderStatus }).eq('id', id)
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: 'cancelled' as OrderStatus } : o)))
+    setShowDetail(false)
+  }
 
   /* ── render ── */
   return (
@@ -202,13 +220,21 @@ export default function Deliveries() {
             ) : (
               <div className="flex flex-col">
                 {filtered.map((order) => (
-                  <DeliveryCard key={order.id} order={order} />
+                  <DeliveryCard key={order.id} order={order} onClick={() => { setDetailOrder(order); setShowDetail(true) }} />
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
+
+      <OrderDetailModal
+        order={detailOrder}
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        onSave={handleSaveOrder}
+        onCancel={handleCancelOrder}
+      />
     </div>
   )
 }
@@ -237,9 +263,9 @@ function StatCard({
 
 /* ─── delivery card ─── */
 
-function DeliveryCard({ order }: { order: Order }) {
+function DeliveryCard({ order, onClick }: { order: Order; onClick?: () => void }) {
   return (
-    <div className="bg-s1 border border-border rounded-lg p-4 mb-3">
+    <div onClick={onClick} className="bg-s1 border border-border rounded-lg p-4 mb-3 cursor-pointer hover:bg-s2 transition-colors">
       {/* Row 1: Customer name + status badge */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold text-text truncate mr-3">

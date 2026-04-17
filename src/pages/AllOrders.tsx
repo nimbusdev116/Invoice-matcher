@@ -5,12 +5,14 @@ import {
   type Order,
   type OrderStatus,
   type OrderChannel,
+  type FulfillmentMethod,
   STATUS_LABELS,
   FULFILLMENT_LABELS,
   CHANNEL_CONFIG,
 } from '../types'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import OrderDetailModal from '../components/board/OrderDetailModal'
 
 /* ─── constants ─── */
 const PAGE_SIZE = 20
@@ -71,6 +73,10 @@ export default function AllOrders() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | OrderStatus>('')
   const [channelFilter, setChannelFilter] = useState<'' | OrderChannel>('')
+
+  /* detail modal */
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
 
   /* sort */
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
@@ -151,6 +157,27 @@ export default function AllOrders() {
 
   /* reset page when filters change */
   useEffect(() => { setPage(1) }, [search, statusFilter, channelFilter])
+
+  /* ── row click handler ── */
+  function handleRowClick(order: Order) {
+    setDetailOrder(order)
+    setShowDetail(true)
+  }
+
+  async function handleSaveOrder(
+    id: string,
+    updates: { status: OrderStatus; fulfillment_method: FulfillmentMethod | null; notes: string | null },
+  ) {
+    await supabase.from('orders').update(updates).eq('id', id)
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)))
+    setShowDetail(false)
+  }
+
+  async function handleCancelOrder(id: string) {
+    await supabase.from('orders').update({ status: 'cancelled' as OrderStatus }).eq('id', id)
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: 'cancelled' as OrderStatus } : o)))
+    setShowDetail(false)
+  }
 
   /* ── sort handler ── */
   function handleSort(key: SortKey) {
@@ -272,8 +299,9 @@ export default function AllOrders() {
               {paged.map((order, i) => (
                 <tr
                   key={order.id}
+                  onClick={() => handleRowClick(order)}
                   className={cn(
-                    'border-b border-border hover:bg-s2 transition-colors',
+                    'border-b border-border hover:bg-s2 transition-colors cursor-pointer',
                     i % 2 === 1 && 'bg-s1/40',
                   )}
                 >
@@ -356,6 +384,14 @@ export default function AllOrders() {
           </Button>
         </div>
       )}
+
+      <OrderDetailModal
+        order={detailOrder}
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        onSave={handleSaveOrder}
+        onCancel={handleCancelOrder}
+      />
     </div>
   )
 }
