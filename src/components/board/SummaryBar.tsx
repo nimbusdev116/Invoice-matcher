@@ -13,18 +13,19 @@ export default function SummaryBar({ orders }: Props) {
   const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
 
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5 bg-s1 border-b border-border shrink-0">
+    <div className="flex items-center gap-5 px-6 py-2.5 bg-s1 border-b border-border shrink-0">
       <SumItem color="bg-amber" value={pending} label="pending" />
       <SumItem color="bg-blue" value={processing} label="processing" />
-      <SumItem color="bg-orange" value={shipment} label="awaiting shipment" />
+      <SumItem color="bg-orange" value={shipment} label="awaiting" />
       <div className="flex-1" />
       <div className="flex items-center gap-1.5 text-xs">
-        <div className="w-2 h-2 rounded-full bg-red" />
-        <span className={`font-bold ${urgent > 0 ? 'text-red' : 'text-muted'}`}>{urgent}</span>
-        <span className="text-muted">urgent (&gt;3 days)</span>
+        <div className={`w-1.5 h-1.5 rounded-full ${urgent > 0 ? 'bg-red' : 'bg-muted/30'}`} />
+        <span className={`font-bold ${urgent > 0 ? 'text-red' : 'text-muted/50'}`}>{urgent}</span>
+        <span className="text-muted/60 text-[11px]">urgent (&gt;3 days)</span>
       </div>
-      <div className="flex items-center gap-1.5 text-xs ml-2">
-        <span className="text-muted">Total value:</span>
+      <div className="h-4 w-px bg-border" />
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-muted/60 text-[11px]">Value:</span>
         <span className="font-bold text-green">{formatEur(totalValue)}</span>
       </div>
     </div>
@@ -34,9 +35,9 @@ export default function SummaryBar({ orders }: Props) {
 function SumItem({ color, value, label }: { color: string; value: number; label: string }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <div className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="font-bold">{value}</span>
-      <span className="text-muted">{label}</span>
+      <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
+      <span className="font-bold text-text">{value}</span>
+      <span className="text-muted/60">{label}</span>
     </div>
   )
 }

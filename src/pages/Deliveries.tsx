@@ -12,8 +12,6 @@ import {
 import Badge from '../components/ui/Badge'
 import OrderDetailModal from '../components/board/OrderDetailModal'
 
-/* ─── constants ─── */
-
 type DeliveryFilter = 'all' | 'awaiting_shipment' | 'shipped' | 'delivered'
 
 const FILTER_PILLS: { value: DeliveryFilter; label: string }[] = [
@@ -46,8 +44,6 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-/* ─── main component ─── */
-
 export default function Deliveries() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,13 +52,10 @@ export default function Deliveries() {
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
   const [showDetail, setShowDetail] = useState(false)
 
-  /* ── fetch ── */
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
-
-      // Delivered: only last 7 days
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
       const sevenDaysAgoISO = sevenDaysAgo.toISOString()
@@ -100,9 +93,7 @@ export default function Deliveries() {
     return () => { cancelled = true }
   }, [])
 
-  /* ── derived ── */
   const today = new Date().toISOString().slice(0, 10)
-
   const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
   const shippedCount = orders.filter((o) => o.status === 'shipped').length
   const deliveredTodayCount = orders.filter(
@@ -114,15 +105,8 @@ export default function Deliveries() {
 
   const filtered = useMemo(() => {
     let list = orders
-
-    if (statusFilter !== 'all') {
-      list = list.filter((o) => o.status === statusFilter)
-    }
-
-    if (fulfillmentFilter) {
-      list = list.filter((o) => o.fulfillment_method === fulfillmentFilter)
-    }
-
+    if (statusFilter !== 'all') list = list.filter((o) => o.status === statusFilter)
+    if (fulfillmentFilter) list = list.filter((o) => o.fulfillment_method === fulfillmentFilter)
     return list
   }, [orders, statusFilter, fulfillmentFilter])
 
@@ -141,19 +125,18 @@ export default function Deliveries() {
     setShowDetail(false)
   }
 
-  /* ── render ── */
   return (
     <div className="flex flex-col h-full">
-      {/* Topbar */}
-      <header className="h-[54px] shrink-0 bg-s1 border-b border-border flex items-center px-5">
-        <h1 className="text-[15px] font-semibold text-text">Deliveries</h1>
+      {/* Header */}
+      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center px-6">
+        <h1 className="text-sm font-semibold text-text">Deliveries</h1>
       </header>
 
-      {/* Scrollable content */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 16 16" fill="none">
                 <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
                 <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -162,28 +145,27 @@ export default function Deliveries() {
             </div>
           </div>
         ) : (
-          <div className="p-5">
-            {/* Summary stats row */}
-            <div className="grid grid-cols-4 gap-4 mb-5">
-              <StatCard label="Awaiting Shipment" value={awaitingShipmentCount} dotColor="bg-orange" />
-              <StatCard label="Shipped / In Transit" value={shippedCount} dotColor="bg-purple" />
-              <StatCard label="Delivered Today" value={deliveredTodayCount} dotColor="bg-green" />
-              <StatCard label="Awaiting POD" value={awaitingPodCount} dotColor="bg-amber" />
+          <div className="p-6">
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <StatCard label="Awaiting Shipment" value={awaitingShipmentCount} accent="orange" />
+              <StatCard label="In Transit" value={shippedCount} accent="purple" />
+              <StatCard label="Delivered Today" value={deliveredTodayCount} accent="green" />
+              <StatCard label="Awaiting POD" value={awaitingPodCount} accent="amber" />
             </div>
 
-            {/* Filter bar */}
+            {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 mb-5">
-              {/* Status pills */}
               <div className="flex items-center gap-1.5">
                 {FILTER_PILLS.map((pill) => (
                   <button
                     key={pill.value}
                     onClick={() => setStatusFilter(pill.value)}
                     className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer',
+                      'px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all duration-150 cursor-pointer',
                       statusFilter === pill.value
-                        ? 'bg-blue-d text-blue border-blue/30'
-                        : 'bg-s1 text-muted border-border hover:text-text'
+                        ? 'bg-blue/12 text-blue border-blue/25'
+                        : 'bg-transparent text-muted border-transparent hover:text-text hover:bg-white/[0.03]'
                     )}
                   >
                     {pill.label}
@@ -191,36 +173,46 @@ export default function Deliveries() {
                 ))}
               </div>
 
-              {/* Fulfillment method dropdown */}
+              <div className="h-5 w-px bg-border" />
+
               <select
                 value={fulfillmentFilter}
                 onChange={(e) => setFulfillmentFilter(e.target.value as '' | FulfillmentMethod)}
-                className="bg-s1 border border-border rounded-md text-[13px] text-text py-1.5 px-2.5 outline-none focus:border-blue transition cursor-pointer"
+                className={cn(
+                  'bg-s2 border rounded-lg text-[13px] py-1.5 px-3 outline-none transition-all cursor-pointer',
+                  fulfillmentFilter ? 'border-blue/40 text-blue' : 'border-border text-text'
+                )}
               >
                 {FULFILLMENT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
 
-              {/* Results count */}
-              <span className="text-muted text-[12px] ml-auto whitespace-nowrap">
+              <span className="text-muted/60 text-[11px] ml-auto tabular-nums">
                 {filtered.length} {filtered.length === 1 ? 'order' : 'orders'}
               </span>
             </div>
 
-            {/* Delivery cards list */}
+            {/* Cards */}
             {filtered.length === 0 ? (
               <div className="flex items-center justify-center py-20 text-muted">
                 <div className="text-center">
-                  <div className="mb-2 opacity-40 flex justify-center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg></div>
-                  <div className="text-sm">No deliveries match your filters</div>
-                  <div className="text-xs mt-1 opacity-70">Try adjusting your filters</div>
+                  <svg className="w-10 h-10 mx-auto mb-3 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  </svg>
+                  <div className="text-sm font-medium">No deliveries found</div>
+                  <div className="text-xs mt-1 text-muted/60">Try adjusting your filters</div>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col">
-                {filtered.map((order) => (
-                  <DeliveryCard key={order.id} order={order} onClick={() => { setDetailOrder(order); setShowDetail(true) }} />
+              <div className="flex flex-col gap-2">
+                {filtered.map((order, i) => (
+                  <DeliveryCard
+                    key={order.id}
+                    order={order}
+                    onClick={() => { setDetailOrder(order); setShowDetail(true) }}
+                    index={i}
+                  />
                 ))}
               </div>
             )}
@@ -239,35 +231,38 @@ export default function Deliveries() {
   )
 }
 
-/* ─── stat card ─── */
-
 function StatCard({
   label,
   value,
-  dotColor,
+  accent,
 }: {
   label: string
   value: number
-  dotColor: string
+  accent: 'orange' | 'purple' | 'green' | 'amber'
 }) {
+  const styles = {
+    orange: 'bg-orange/8 border-orange/15 text-orange',
+    purple: 'bg-purple/8 border-purple/15 text-purple',
+    green: 'bg-green/8 border-green/15 text-green',
+    amber: 'bg-amber/8 border-amber/15 text-amber',
+  }
+
   return (
-    <div className="bg-s1 border border-border rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-        <span className="text-muted text-xs uppercase tracking-wide">{label}</span>
-      </div>
+    <div className={`rounded-xl border p-4 ${styles[accent]}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70 mb-2">{label}</div>
       <div className="text-2xl font-bold text-text">{value}</div>
     </div>
   )
 }
 
-/* ─── delivery card ─── */
-
-function DeliveryCard({ order, onClick }: { order: Order; onClick?: () => void }) {
+function DeliveryCard({ order, onClick, index }: { order: Order; onClick?: () => void; index: number }) {
   return (
-    <div onClick={onClick} className="bg-s1 border border-border rounded-lg p-4 mb-3 cursor-pointer hover:bg-s2 transition-colors">
-      {/* Row 1: Customer name + status badge */}
-      <div className="flex items-center justify-between mb-2">
+    <div
+      onClick={onClick}
+      className="bg-s1 border border-border rounded-xl p-4 cursor-pointer hover:border-border2 hover:bg-s1/80 transition-all duration-150"
+      style={{ animation: `fadeIn ${0.1 + index * 0.03}s ease-out` }}
+    >
+      <div className="flex items-center justify-between mb-2.5">
         <span className="text-sm font-semibold text-text truncate mr-3">
           {order.customer_name}
         </span>
@@ -276,51 +271,42 @@ function DeliveryCard({ order, onClick }: { order: Order; onClick?: () => void }
         </Badge>
       </div>
 
-      {/* Row 2: SO + Zoho ref */}
-      <div className="flex items-center gap-3 mb-2 text-xs text-muted">
-        <span>{order.so_number ?? 'No SO#'}</span>
+      <div className="flex items-center gap-3 mb-2.5 text-[11px] text-muted/60">
+        <span className="text-text/80">{order.so_number ?? 'No SO#'}</span>
         {order.reference_number && (
           <>
-            <span className="text-border2">|</span>
+            <span className="text-border">|</span>
             <span>Ref: {order.reference_number}</span>
           </>
         )}
       </div>
 
-      {/* Row 3: Fulfillment, value, shipped date */}
-      <div className="flex flex-wrap items-center gap-4 text-xs">
-        {/* Fulfillment method */}
+      <div className="flex flex-wrap items-center gap-4 text-[11px]">
         {order.fulfillment_method ? (
-          <span className="text-muted">
-            <span className="mr-1">{FULFILLMENT_ICONS[order.fulfillment_method]}</span>
+          <span className="flex items-center gap-1 text-muted">
+            <span>{FULFILLMENT_ICONS[order.fulfillment_method]}</span>
             {FULFILLMENT_LABELS[order.fulfillment_method]}
           </span>
         ) : (
-          <span className="text-muted italic">No method</span>
+          <span className="text-muted/40 italic">No method</span>
         )}
 
-        {/* Value */}
-        <span className="text-text font-medium tabular-nums">{formatEur(order.value)}</span>
+        <span className="text-text font-semibold tabular-nums">{formatEur(order.value)}</span>
 
-        {/* Shipped date */}
         {order.shipped_at ? (
-          <span className="text-muted">
-            Shipped {formatDate(order.shipped_at)}
-          </span>
+          <span className="text-muted/60">Shipped {formatDate(order.shipped_at)}</span>
         ) : (
-          <span className="text-muted italic">Not yet shipped</span>
+          <span className="text-muted/40">Not yet shipped</span>
         )}
 
-        {/* POD badge */}
         {order.pod_required && !order.pod_received && (
-          <span className="bg-amber-d text-amber text-[10px] font-semibold py-0.5 px-2 rounded-full">
+          <span className="bg-amber/12 text-amber text-[10px] font-semibold py-0.5 px-2 rounded-md">
             Awaiting POD
           </span>
         )}
 
-        {/* Delivered badge */}
         {order.status === 'delivered' && (
-          <span className="bg-green-d text-green text-[10px] font-semibold py-0.5 px-2 rounded-full">
+          <span className="bg-green/12 text-green text-[10px] font-semibold py-0.5 px-2 rounded-md">
             Delivered {formatDate(order.delivered_at)}
           </span>
         )}

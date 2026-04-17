@@ -27,52 +27,49 @@ export default function OrderCard({ order, onAdvance, onProcess, onClick }: Prop
   return (
     <div
       onClick={() => onClick(order.id)}
-      className="relative bg-s2 border border-border rounded-lg p-3 mb-2 cursor-pointer transition-all hover:border-border2 hover:bg-s3 hover:-translate-y-px"
+      className="relative bg-s2 border border-border rounded-xl p-3.5 mb-2 cursor-pointer transition-all duration-150 hover:border-border2 hover:bg-s3"
     >
       {isUrgent && (
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-red" />
+        <div className="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-full bg-red" />
       )}
 
-      <div className="flex items-start justify-between mb-2 gap-1.5">
-        <div className="font-semibold text-[13px] text-text leading-tight flex-1">
+      <div className="flex items-start justify-between mb-2.5 gap-1.5">
+        <div className="font-semibold text-[13px] text-text leading-tight flex-1 truncate">
           {order.customer_name}
         </div>
         <Badge variant={badgeVariant}>{STATUS_LABELS[order.status]}</Badge>
       </div>
 
-      <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted">
-        <span className="min-w-[40px]">SO:</span>
-        <span className="text-text font-medium">{order.so_number || '—'}</span>
-      </div>
-
-      {order.reference_number && (
-        <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted">
-          <span className="min-w-[40px]">Ref:</span>
-          <span className="text-blue font-medium">{order.reference_number}</span>
+      <div className="space-y-1 mb-2.5">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="text-muted/50 w-7">SO</span>
+          <span className="text-text font-medium">{order.so_number || '--'}</span>
         </div>
-      )}
-
-      <div className="flex items-center gap-1.5 mb-1 text-[11px] text-muted">
-        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M4.75 0a.75.75 0 01.75.75V2h5V.75a.75.75 0 011.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0113.25 16H2.75A1.75 1.75 0 011 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 014.75 0zM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25V7.5z" />
-        </svg>
-        <span>{formatDateTime(order.created_at)}</span>
+        {order.reference_number && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted">
+            <span className="text-muted/50 w-7">Ref</span>
+            <span className="text-blue font-medium">{order.reference_number}</span>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center gap-1.5 mt-1 text-[11px]">
-        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: srcColor }} />
-        <span style={{ color: srcColor }}>{srcLabel}</span>
-        <span className="ml-auto font-bold text-xs">{formatEur(Number(order.value))}</span>
+      <div className="flex items-center justify-between text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: srcColor }} />
+          <span className="text-muted">{srcLabel}</span>
+        </div>
+        <span className="font-bold text-xs text-text">{formatEur(Number(order.value))}</span>
       </div>
 
-      <div className="flex items-center justify-between mt-2">
-        <span className={`text-[10px] ${isUrgent ? 'text-red' : 'text-muted'}`}>
-          {isUrgent ? '! ' : ''}{ageLabel(order.created_at)}
+      <div className="flex items-center justify-between mt-1.5 text-[10px]">
+        <span className={isUrgent ? 'text-red font-medium' : 'text-muted/60'}>
+          {ageLabel(order.created_at)}
         </span>
+        <span className="text-muted/40">{formatDateTime(order.created_at)}</span>
       </div>
 
       <div
-        className="flex gap-1.5 mt-2.5"
+        className="flex gap-1.5 mt-3 pt-2.5 border-t border-border/50"
         onClick={(e) => e.stopPropagation()}
       >
         <Button size="sm" className="flex-1 justify-center" onClick={() => onAdvance(order.id)}>

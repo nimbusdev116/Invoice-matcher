@@ -11,10 +11,8 @@ import {
   CHANNEL_CONFIG,
 } from '../types'
 import Badge from '../components/ui/Badge'
-import Button from '../components/ui/Button'
 import OrderDetailModal from '../components/board/OrderDetailModal'
 
-/* ─── constants ─── */
 const PAGE_SIZE = 20
 
 type SortKey = 'so_number' | 'customer_name' | 'value' | 'created_at'
@@ -54,38 +52,27 @@ const CHANNEL_OPTIONS: { value: '' | OrderChannel; label: string }[] = [
   { value: 'manual', label: 'Manual' },
 ]
 
-/* ─── sort arrow icon ─── */
 function SortArrow({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <span className="ml-1 opacity-0 group-hover:opacity-40 text-[10px]">&#x25B2;</span>
+  if (!active) return <span className="ml-1 opacity-0 group-hover:opacity-30 text-[10px]">&#x25B2;</span>
   return (
-    <span className="ml-1 text-[10px]">
+    <span className="ml-1 text-[10px] text-blue">
       {dir === 'asc' ? '\u25B2' : '\u25BC'}
     </span>
   )
 }
 
-/* ─── main component ─── */
 export default function AllOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-
-  /* filters */
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | OrderStatus>('')
   const [channelFilter, setChannelFilter] = useState<'' | OrderChannel>('')
-
-  /* detail modal */
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
   const [showDetail, setShowDetail] = useState(false)
-
-  /* sort */
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-
-  /* pagination */
   const [page, setPage] = useState(1)
 
-  /* ── fetch ── */
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -105,13 +92,10 @@ export default function AllOrders() {
     return () => { cancelled = true }
   }, [])
 
-  /* ── derived data ── */
   const filtered = useMemo(() => {
     let list = orders
-
     if (statusFilter) list = list.filter((o) => o.status === statusFilter)
     if (channelFilter) list = list.filter((o) => o.channel === channelFilter)
-
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter(
@@ -120,7 +104,6 @@ export default function AllOrders() {
           (o.so_number && o.so_number.toLowerCase().includes(q)),
       )
     }
-
     return list
   }, [orders, search, statusFilter, channelFilter])
 
@@ -155,10 +138,8 @@ export default function AllOrders() {
     [sorted, safePage],
   )
 
-  /* reset page when filters change */
   useEffect(() => { setPage(1) }, [search, statusFilter, channelFilter])
 
-  /* ── row click handler ── */
   function handleRowClick(order: Order) {
     setDetailOrder(order)
     setShowDetail(true)
@@ -179,7 +160,6 @@ export default function AllOrders() {
     setShowDetail(false)
   }
 
-  /* ── sort handler ── */
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -189,13 +169,12 @@ export default function AllOrders() {
     }
   }
 
-  /* ── column header helper ── */
   function TH({ label, sortable, className = '' }: { label: string; sortable?: SortKey; className?: string }) {
-    const base = 'text-muted text-[11px] uppercase tracking-wide font-semibold py-2.5 px-3 text-left whitespace-nowrap'
+    const base = 'text-muted text-[11px] uppercase tracking-wider font-semibold py-3 px-4 text-left whitespace-nowrap'
     if (!sortable) return <th className={cn(base, className)}>{label}</th>
     return (
       <th
-        className={cn(base, 'cursor-pointer select-none group', className)}
+        className={cn(base, 'cursor-pointer select-none group hover:text-text transition-colors', className)}
         onClick={() => handleSort(sortable)}
       >
         <span className="inline-flex items-center">
@@ -206,23 +185,35 @@ export default function AllOrders() {
     )
   }
 
-  /* ── render ── */
+  const activeFilters = [statusFilter, channelFilter, search].filter(Boolean).length
+
   return (
     <div className="flex flex-col h-full">
-      {/* topbar */}
-      <div className="h-[54px] bg-s1 border-b border-border flex items-center justify-between px-5 shrink-0">
-        <h1 className="text-[15px] font-semibold">All orders</h1>
-        <Button variant="default" size="sm" onClick={() => {}}>
-          Export
-        </Button>
+      {/* Header */}
+      <div className="h-14 bg-s1 border-b border-border flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-text">All orders</h1>
+          <span className="text-[11px] text-muted bg-s2 px-2 py-0.5 rounded-md">
+            {orders.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {activeFilters > 0 && (
+            <button
+              onClick={() => { setSearch(''); setStatusFilter(''); setChannelFilter('') }}
+              className="text-[11px] text-red hover:text-red/80 font-medium cursor-pointer transition-colors"
+            >
+              Clear filters ({activeFilters})
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* search + filter bar */}
-      <div className="bg-bg border-b border-border px-5 py-3 flex flex-wrap items-center gap-3 shrink-0">
-        {/* search */}
+      {/* Filter bar */}
+      <div className="bg-s1/50 border-b border-border px-6 py-3 flex flex-wrap items-center gap-3 shrink-0">
         <div className="relative">
           <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -232,53 +223,66 @@ export default function AllOrders() {
           </svg>
           <input
             type="text"
-            placeholder="Search by customer or SO..."
+            placeholder="Search orders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-s1 border border-border rounded-md text-[13px] text-text placeholder:text-muted py-1.5 pl-8 pr-3 w-64 outline-none focus:border-blue transition"
+            className="bg-s2 border border-border rounded-lg text-[13px] text-text placeholder:text-muted/50 py-2 pl-9 pr-3 w-64 outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/20 transition-all"
           />
         </div>
 
-        {/* status filter */}
+        <div className="h-5 w-px bg-border" />
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as '' | OrderStatus)}
-          className="bg-s1 border border-border rounded-md text-[13px] text-text py-1.5 px-2.5 outline-none focus:border-blue transition cursor-pointer"
+          className={cn(
+            'bg-s2 border rounded-lg text-[13px] py-2 px-3 outline-none transition-all cursor-pointer',
+            statusFilter ? 'border-blue/40 text-blue' : 'border-border text-text'
+          )}
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
 
-        {/* channel filter */}
         <select
           value={channelFilter}
           onChange={(e) => setChannelFilter(e.target.value as '' | OrderChannel)}
-          className="bg-s1 border border-border rounded-md text-[13px] text-text py-1.5 px-2.5 outline-none focus:border-blue transition cursor-pointer"
+          className={cn(
+            'bg-s2 border rounded-lg text-[13px] py-2 px-3 outline-none transition-all cursor-pointer',
+            channelFilter ? 'border-blue/40 text-blue' : 'border-border text-text'
+          )}
         >
           {CHANNEL_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
 
-        {/* results count */}
-        <span className="text-muted text-[12px] ml-auto whitespace-nowrap">
-          Showing {sorted.length} of {orders.length} orders
+        <span className="text-muted text-[11px] ml-auto tabular-nums">
+          {sorted.length} of {orders.length} orders
         </span>
       </div>
 
-      {/* table area */}
+      {/* Table */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted text-sm">
-            Loading orders...
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              Loading orders...
+            </div>
           </div>
         ) : paged.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted">
             <div className="text-center">
-              <div className="mb-2 opacity-40 flex justify-center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
-              <div className="text-sm">No orders match your filters</div>
-              <div className="text-xs mt-1 opacity-70">Try adjusting your search or filters</div>
+              <svg className="w-10 h-10 mx-auto mb-3 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <div className="text-sm font-medium">No orders found</div>
+              <div className="text-xs mt-1 text-muted/60">Try adjusting your search or filters</div>
             </div>
           </div>
         ) : (
@@ -301,55 +305,41 @@ export default function AllOrders() {
                   key={order.id}
                   onClick={() => handleRowClick(order)}
                   className={cn(
-                    'border-b border-border hover:bg-s2 transition-colors cursor-pointer',
-                    i % 2 === 1 && 'bg-s1/40',
+                    'border-b border-border/50 hover:bg-blue/[0.04] transition-colors cursor-pointer',
+                    i % 2 === 1 && 'bg-s1/30',
                   )}
+                  style={{ animation: `fadeIn ${0.1 + i * 0.02}s ease-out` }}
                 >
-                  {/* SO Number */}
-                  <td className="text-[13px] py-2.5 px-3 font-medium whitespace-nowrap">
-                    {order.so_number ?? <span className="text-muted italic">--</span>}
+                  <td className="text-[13px] py-3 px-4 font-medium whitespace-nowrap">
+                    {order.so_number ?? <span className="text-muted/50 italic">--</span>}
                   </td>
-
-                  {/* Customer */}
-                  <td className="text-[13px] py-2.5 px-3 max-w-[200px] truncate">
+                  <td className="text-[13px] py-3 px-4 max-w-[200px] truncate">
                     {order.customer_name}
                   </td>
-
-                  {/* Channel */}
-                  <td className="text-[13px] py-2.5 px-3 whitespace-nowrap">
+                  <td className="text-[13px] py-3 px-4 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className={cn('w-2 h-2 rounded-full shrink-0', CHANNEL_DOT_COLOR[order.channel])} />
-                      {CHANNEL_CONFIG[order.channel].label}
+                      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', CHANNEL_DOT_COLOR[order.channel])} />
+                      <span className="text-muted">{CHANNEL_CONFIG[order.channel].label}</span>
                     </span>
                   </td>
-
-                  {/* Status */}
-                  <td className="py-2.5 px-3">
+                  <td className="py-3 px-4">
                     <Badge variant={STATUS_TO_BADGE[order.status]}>
                       {STATUS_LABELS[order.status]}
                     </Badge>
                   </td>
-
-                  {/* Value */}
-                  <td className="text-[13px] py-2.5 px-3 text-right tabular-nums whitespace-nowrap">
+                  <td className="text-[13px] py-3 px-4 text-right tabular-nums whitespace-nowrap font-medium">
                     {formatEur(order.value)}
                   </td>
-
-                  {/* Fulfillment */}
-                  <td className="text-[13px] py-2.5 px-3 whitespace-nowrap text-muted">
+                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
                     {order.fulfillment_method
                       ? FULFILLMENT_LABELS[order.fulfillment_method]
-                      : <span className="italic">--</span>}
+                      : <span className="text-muted/40">--</span>}
                   </td>
-
-                  {/* Age */}
-                  <td className="text-[13px] py-2.5 px-3 whitespace-nowrap text-muted">
+                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
                     {ageLabel(order.created_at)}
                   </td>
-
-                  {/* Rep */}
-                  <td className="text-[13px] py-2.5 px-3 whitespace-nowrap text-muted truncate max-w-[100px]">
-                    {order.rep_id ?? <span className="italic">--</span>}
+                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted truncate max-w-[100px]">
+                    {order.rep_id ?? <span className="text-muted/40">--</span>}
                   </td>
                 </tr>
               ))}
@@ -358,30 +348,51 @@ export default function AllOrders() {
         )}
       </div>
 
-      {/* pagination */}
+      {/* Pagination */}
       {!loading && sorted.length > 0 && (
-        <div className="bg-s1 border-t border-border px-5 py-2.5 flex items-center justify-between shrink-0">
-          <Button
-            variant="default"
-            size="sm"
+        <div className="bg-s1 border-t border-border px-6 py-2.5 flex items-center justify-between shrink-0">
+          <button
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className={cn(safePage <= 1 && 'opacity-40 cursor-not-allowed')}
+            className={cn(
+              'text-[11px] font-medium px-3 py-1.5 rounded-lg border border-border transition-all cursor-pointer',
+              safePage <= 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-s2 text-text'
+            )}
           >
             Previous
-          </Button>
-          <span className="text-[12px] text-muted">
-            Page {safePage} of {totalPages}
-          </span>
-          <Button
-            variant="default"
-            size="sm"
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              const pageNum = i + 1
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={cn(
+                    'w-7 h-7 rounded-lg text-[11px] font-medium transition-all cursor-pointer',
+                    safePage === pageNum
+                      ? 'bg-blue/15 text-blue border border-blue/25'
+                      : 'text-muted hover:text-text hover:bg-s2'
+                  )}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+            {totalPages > 7 && (
+              <span className="text-muted text-[11px] px-1">...</span>
+            )}
+          </div>
+          <button
             disabled={safePage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className={cn(safePage >= totalPages && 'opacity-40 cursor-not-allowed')}
+            className={cn(
+              'text-[11px] font-medium px-3 py-1.5 rounded-lg border border-border transition-all cursor-pointer',
+              safePage >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-s2 text-text'
+            )}
           >
             Next
-          </Button>
+          </button>
         </div>
       )}
 

@@ -25,24 +25,26 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/75 flex items-start justify-center z-50 pt-10 overflow-y-auto"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[5vh] overflow-y-auto"
       onClick={onClose}
+      style={{ animation: 'fadeIn 0.15s ease-out' }}
     >
       <div
-        className="bg-s1 border border-border2 rounded-xl w-full max-w-[520px]"
+        className="bg-s1 border border-border rounded-xl w-full max-w-[520px] shadow-2xl shadow-black/40"
         onClick={(e) => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.2s ease-out' }}
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="font-semibold text-[15px] text-text">{title}</h2>
+          <h2 className="font-semibold text-[14px] text-text">{title}</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md border border-border bg-s2 text-muted cursor-pointer inline-flex items-center justify-center hover:text-text transition"
+            className="w-7 h-7 rounded-lg border border-border bg-s2 text-muted cursor-pointer inline-flex items-center justify-center hover:text-text hover:bg-s3 transition-all"
             aria-label="Close"
           >
             <svg
-              width="14"
-              height="14"
+              width="12"
+              height="12"
               viewBox="0 0 14 14"
               fill="none"
               stroke="currentColor"
