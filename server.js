@@ -392,89 +392,81 @@ app.get('/api/zoho/audit', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
     if (!process.env.ZOHO_REFRESH_TOKEN) return res.status(500).json({ error: 'Zoho not configured' })
 
-    const limit = Math.min(parseInt(req.query.limit || '50', 10), 200)
+    // Soft cap at 25 per status to stay within Railway's 30s timeout
+    // Use parallel batches of 5 to keep it fast
+    const perStatus = Math.min(parseInt(req.query.limit || '25', 10), 50)
     const statusFilter = req.query.status || 'pending,processing,awaiting_shipment'
     const statuses = statusFilter.split(',').map(s => s.trim())
 
-    console.log(`Audit: fetching up to ${limit} orders with status in [${statuses.join(',')}]`)
-
-    const { data: dbOrders, error: dbErr } = await supabase
+    // First: get DB-wide counts (no limit)
+    const { data: allOrders } = await supabase
       .from('orders')
-      .select('id, so_number, zoho_so_id, status, created_at, customer_name, value')
+      .select('status')
       .in('status', statuses)
-      .order('created_at', { ascending: true })
-      .limit(limit)
-
-    if (dbErr) return res.status(500).json({ error: dbErr.message })
-
     const dbBreakdown = {}
-    for (const s of statuses) dbBreakdown[s] = 0
-    for (const o of dbOrders) dbBreakdown[o.status] = (dbBreakdown[o.status] || 0) + 1
+    for (const o of allOrders || []) dbBreakdown[o.status] = (dbBreakdown[o.status] || 0) + 1
 
-    const results = []
-    const expectedBreakdown = {}
-
-    for (const order of dbOrders) {
-      if (!order.zoho_so_id) {
-        results.push({ so_number: order.so_number, db_status: order.status, expected_status: 'manual-no-zoho-id', match: false, zoho_status: null, invoiced_status: null, invoices: [] })
-        continue
-      }
-
-      try {
-        const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
-        const so = detail.salesorder
-        if (!so) { results.push({ so_number: order.so_number, db_status: order.status, expected_status: 'error-no-detail', match: false }); continue }
-
-        const soStatus = (so.status || '').toLowerCase()
-        const invoicedStatus = (so.invoiced_status || '').toLowerCase()
-        const invoices = (so.invoices || []).map(inv => ({ number: inv.invoice_number, status: inv.status }))
-
-        let expected
-        if (soStatus === 'void' || soStatus === 'cancelled') {
-          expected = 'cancelled'
-        } else if (soStatus === 'fulfilled' || soStatus === 'closed') {
-          expected = 'delivered'
-        } else if (soStatus === 'draft' || soStatus === 'awaiting_approval') {
-          expected = 'pending'
-        } else if (invoices.length === 0) {
-          expected = 'processing'
-        } else {
-          const sentInv = invoices.find(inv => ['sent','viewed','overdue','paid','partially_paid'].includes((inv.status||'').toLowerCase()))
-          expected = sentInv ? 'shipped' : 'awaiting_shipment'
-        }
-
-        expectedBreakdown[expected] = (expectedBreakdown[expected] || 0) + 1
-
-        const match = order.status === expected
-        const entry = {
-          so_number: order.so_number,
-          customer: order.customer_name,
-          db_status: order.status,
-          expected_status: expected,
-          match,
-          zoho_so_status: soStatus,
-          zoho_invoiced_status: invoicedStatus,
-          invoice_count: invoices.length,
-          invoices,
-        }
-        if (!match) entry.created_at = order.created_at
-        results.push(entry)
-      } catch (err) {
-        results.push({ so_number: order.so_number, db_status: order.status, expected_status: `error: ${err.message}`, match: false })
-      }
+    // Then: sample up to perStatus from each status for Zoho cross-check
+    const samples = []
+    for (const s of statuses) {
+      const { data } = await supabase
+        .from('orders')
+        .select('id, so_number, zoho_so_id, status, created_at, customer_name')
+        .eq('status', s)
+        .order('created_at', { ascending: true })
+        .limit(perStatus)
+      if (data) samples.push(...data)
     }
 
-    const mismatches = results.filter(r => !r.match)
-    const matches = results.filter(r => r.match)
+    console.log(`Audit: checking ${samples.length} sampled orders against Zoho (${perStatus} per status)`)
+
+    // Process in parallel batches of 5
+    const results = []
+    const expectedBreakdown = {}
+    for (let i = 0; i < samples.length; i += 5) {
+      const batch = samples.slice(i, i + 5)
+      const batchResults = await Promise.all(batch.map(async (order) => {
+        if (!order.zoho_so_id) return { so_number: order.so_number, db_status: order.status, expected_status: 'no-zoho-id', match: null }
+        try {
+          const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
+          const so = detail.salesorder
+          if (!so) return { so_number: order.so_number, db_status: order.status, expected_status: 'no-detail', match: false }
+
+          const soStatus = (so.status || '').toLowerCase()
+          const invoicedStatus = (so.invoiced_status || '').toLowerCase()
+          const invoices = (so.invoices || []).map(inv => ({ number: inv.invoice_number, status: inv.status }))
+
+          let expected
+          if (soStatus === 'void' || soStatus === 'cancelled') expected = 'cancelled'
+          else if (soStatus === 'fulfilled' || soStatus === 'closed') expected = 'delivered'
+          else if (soStatus === 'draft' || soStatus === 'awaiting_approval') expected = 'pending'
+          else if (invoices.length === 0) expected = 'processing'
+          else {
+            const sent = invoices.find(inv => ['sent','viewed','overdue','paid','partially_paid'].includes((inv.status||'').toLowerCase()))
+            expected = sent ? 'shipped' : 'awaiting_shipment'
+          }
+
+          expectedBreakdown[expected] = (expectedBreakdown[expected] || 0) + 1
+          const match = order.status === expected
+          return { so_number: order.so_number, customer: order.customer_name, db_status: order.status, expected_status: expected, match, zoho_so_status: soStatus, zoho_invoiced_status: invoicedStatus, invoice_count: invoices.length, invoices }
+        } catch (err) {
+          return { so_number: order.so_number, db_status: order.status, expected_status: `error: ${err.message}`, match: false }
+        }
+      }))
+      results.push(...batchResults)
+    }
+
+    const mismatches = results.filter(r => r.match === false)
+    const matches = results.filter(r => r.match === true)
 
     res.json({
-      checked: results.length,
+      total_in_db: dbBreakdown,
+      sampled: results.length,
       matches: matches.length,
       mismatches: mismatches.length,
-      db_breakdown: dbBreakdown,
-      expected_breakdown: expectedBreakdown,
+      expected_breakdown_of_sample: expectedBreakdown,
       mismatch_details: mismatches,
-      note: `Checked ${results.length} of ${dbOrders.length} fetched orders. Add ?limit=200 for more, ?status=pending to filter.`,
+      note: `Sampled ${perStatus} orders per status. Use ?limit=50&status=pending to focus on one status.`,
     })
   } catch (err) {
     console.error('Audit error:', err)
