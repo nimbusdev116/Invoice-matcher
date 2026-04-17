@@ -385,6 +385,103 @@ app.post('/api/zoho/sync', async (req, res) => {
   }
 })
 
+// ─── Audit Endpoint ──────────────────────────────────────────────────────────
+
+app.get('/api/zoho/audit', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+    if (!process.env.ZOHO_REFRESH_TOKEN) return res.status(500).json({ error: 'Zoho not configured' })
+
+    const limit = Math.min(parseInt(req.query.limit || '50', 10), 200)
+    const statusFilter = req.query.status || 'pending,processing,awaiting_shipment'
+    const statuses = statusFilter.split(',').map(s => s.trim())
+
+    console.log(`Audit: fetching up to ${limit} orders with status in [${statuses.join(',')}]`)
+
+    const { data: dbOrders, error: dbErr } = await supabase
+      .from('orders')
+      .select('id, so_number, zoho_so_id, status, created_at, customer_name, value')
+      .in('status', statuses)
+      .order('created_at', { ascending: true })
+      .limit(limit)
+
+    if (dbErr) return res.status(500).json({ error: dbErr.message })
+
+    const dbBreakdown = {}
+    for (const s of statuses) dbBreakdown[s] = 0
+    for (const o of dbOrders) dbBreakdown[o.status] = (dbBreakdown[o.status] || 0) + 1
+
+    const results = []
+    const expectedBreakdown = {}
+
+    for (const order of dbOrders) {
+      if (!order.zoho_so_id) {
+        results.push({ so_number: order.so_number, db_status: order.status, expected_status: 'manual-no-zoho-id', match: false, zoho_status: null, invoiced_status: null, invoices: [] })
+        continue
+      }
+
+      try {
+        const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
+        const so = detail.salesorder
+        if (!so) { results.push({ so_number: order.so_number, db_status: order.status, expected_status: 'error-no-detail', match: false }); continue }
+
+        const soStatus = (so.status || '').toLowerCase()
+        const invoicedStatus = (so.invoiced_status || '').toLowerCase()
+        const invoices = (so.invoices || []).map(inv => ({ number: inv.invoice_number, status: inv.status }))
+
+        let expected
+        if (soStatus === 'void' || soStatus === 'cancelled') {
+          expected = 'cancelled'
+        } else if (soStatus === 'fulfilled' || soStatus === 'closed') {
+          expected = 'delivered'
+        } else if (soStatus === 'draft' || soStatus === 'awaiting_approval') {
+          expected = 'pending'
+        } else if (invoices.length === 0) {
+          expected = 'processing'
+        } else {
+          const sentInv = invoices.find(inv => ['sent','viewed','overdue','paid','partially_paid'].includes((inv.status||'').toLowerCase()))
+          expected = sentInv ? 'shipped' : 'awaiting_shipment'
+        }
+
+        expectedBreakdown[expected] = (expectedBreakdown[expected] || 0) + 1
+
+        const match = order.status === expected
+        const entry = {
+          so_number: order.so_number,
+          customer: order.customer_name,
+          db_status: order.status,
+          expected_status: expected,
+          match,
+          zoho_so_status: soStatus,
+          zoho_invoiced_status: invoicedStatus,
+          invoice_count: invoices.length,
+          invoices,
+        }
+        if (!match) entry.created_at = order.created_at
+        results.push(entry)
+      } catch (err) {
+        results.push({ so_number: order.so_number, db_status: order.status, expected_status: `error: ${err.message}`, match: false })
+      }
+    }
+
+    const mismatches = results.filter(r => !r.match)
+    const matches = results.filter(r => r.match)
+
+    res.json({
+      checked: results.length,
+      matches: matches.length,
+      mismatches: mismatches.length,
+      db_breakdown: dbBreakdown,
+      expected_breakdown: expectedBreakdown,
+      mismatch_details: mismatches,
+      note: `Checked ${results.length} of ${dbOrders.length} fetched orders. Add ?limit=200 for more, ?status=pending to filter.`,
+    })
+  } catch (err) {
+    console.error('Audit error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ─── Zoho Status Mapping ─────────────────────────────────────────────────────
 
 async function resolveOrderStatus(so) {
