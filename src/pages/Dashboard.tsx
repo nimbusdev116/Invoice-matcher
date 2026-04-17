@@ -129,7 +129,9 @@ export default function Dashboard() {
                 await fetchData()
                 setSyncing(false)
                 const parts = [`Synced ${result.synced} new orders`]
+                if (result.advanced) parts.push(`${result.advanced} status updated`)
                 if (result.shipped) parts.push(`${result.shipped} moved to Shipped`)
+                if (result.cancelled) parts.push(`${result.cancelled} cancelled`)
                 if (result.errors?.length) parts.push(`${result.errors.length} errors`)
                 alert(parts.join('\n'))
               } catch (err) {

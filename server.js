@@ -252,23 +252,61 @@ app.post('/api/zoho/sync', async (req, res) => {
       await setWatermark(syncStartedAt)
     }
 
-    // ── Phase 2: Check invoices for all processing + awaiting_shipment orders ──
+    // ── Phase 2: Re-check ALL active orders (pending + processing + awaiting_shipment) ──
     let totalShipped = 0
     let totalAdvanced = 0
-    console.log('Phase 2: Checking invoices for processing + awaiting_shipment orders...')
+    let totalCancelled = 0
+    console.log('Phase 2: Re-checking all active orders against Zoho...')
     const { data: activeOrders } = await supabase
       .from('orders')
       .select('id, so_number, zoho_so_id, status')
-      .in('status', ['processing', 'awaiting_shipment'])
+      .in('status', ['pending', 'processing', 'awaiting_shipment'])
 
     for (const order of activeOrders || []) {
       if (!order.zoho_so_id) continue
       try {
         const detail = await zohoGet(`/salesorders/${order.zoho_so_id}`)
-        const invoices = detail.salesorder?.invoices || []
-        console.log(`  ${order.so_number} (${order.status}): ${invoices.length} invoice(s)`)
+        const so = detail.salesorder
+        if (!so) { console.warn(`  ${order.so_number}: no SO detail returned`); continue }
+
+        const soStatus = (so.status || '').toLowerCase()
+        console.log(`  ${order.so_number} (db=${order.status}): zoho_status=${soStatus}, invoiced=${so.invoiced_status}`)
+
+        // Cancelled/void in Zoho → cancel in our system
+        if (soStatus === 'void' || soStatus === 'cancelled') {
+          if (order.status !== 'cancelled') {
+            await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+            console.log(`    → cancelled (SO ${soStatus} in Zoho)`)
+            totalCancelled++
+          }
+          continue
+        }
+
+        // Fulfilled/closed in Zoho → delivered
+        if (soStatus === 'fulfilled' || soStatus === 'closed') {
+          if (order.status !== 'delivered') {
+            await supabase.from('orders').update({ status: 'delivered' }).eq('id', order.id)
+            console.log(`    → delivered (SO ${soStatus} in Zoho)`)
+            totalAdvanced++
+          }
+          continue
+        }
+
+        // Still draft → stay pending
+        if (soStatus === 'draft' || soStatus === 'awaiting_approval') {
+          if (order.status !== 'pending') {
+            await supabase.from('orders').update({ status: 'pending' }).eq('id', order.id)
+            console.log(`    → pending (SO still draft)`)
+          }
+          continue
+        }
+
+        // SO is active (open/confirmed) — check invoices
+        const invoices = so.invoices || []
+        console.log(`    ${invoices.length} invoice(s) linked`)
 
         if (invoices.length === 0) {
+          // No invoice → processing
           if (order.status !== 'processing') {
             await supabase.from('orders').update({ status: 'processing' }).eq('id', order.id)
             console.log(`    → processing (no invoices)`)
@@ -277,6 +315,7 @@ app.post('/api/zoho/sync', async (req, res) => {
           continue
         }
 
+        // Check if any invoice is sent
         let shipped = false
         for (const inv of invoices) {
           const invStatus = (inv.status || '').toLowerCase()
@@ -294,6 +333,7 @@ app.post('/api/zoho/sync', async (req, res) => {
           }
         }
 
+        // Invoice exists but not sent → awaiting_shipment
         if (!shipped && order.status !== 'awaiting_shipment') {
           const firstInv = invoices[0]
           await supabase.from('orders').update({
@@ -305,27 +345,29 @@ app.post('/api/zoho/sync', async (req, res) => {
           totalAdvanced++
         }
       } catch (err) {
-        console.warn(`  Invoice check failed for ${order.so_number}:`, err.message)
-        errors.push(`inv-check ${order.so_number}: ${err.message}`)
+        console.warn(`  Re-check failed for ${order.so_number}:`, err.message)
+        errors.push(`recheck ${order.so_number}: ${err.message}`)
       }
     }
-    console.log(`Phase 2 done: ${totalShipped} shipped, ${totalAdvanced} advanced, out of ${(activeOrders || []).length} checked`)
+    console.log(`Phase 2 done: ${totalShipped} shipped, ${totalAdvanced} advanced, ${totalCancelled} cancelled, out of ${(activeOrders || []).length} checked`)
 
     await supabase.from('zoho_sync_log').insert({
       operation: 'fetch_orders',
       status: errors.length === 0 ? 'success' : errors.length < totalSynced ? 'partial' : 'error',
-      records_affected: totalSynced + totalShipped,
+      records_affected: totalSynced + totalShipped + totalAdvanced + totalCancelled,
       error_message: errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
       completed_at: new Date().toISOString(),
     })
 
-    console.log(`Sync done: synced=${totalSynced}, skipped=${totalSkipped}, shipped=${totalShipped}, errors=${errors.length}`)
+    console.log(`Sync done: synced=${totalSynced}, skipped=${totalSkipped}, shipped=${totalShipped}, advanced=${totalAdvanced}, cancelled=${totalCancelled}, errors=${errors.length}`)
 
     res.json({
       success: true,
       synced: totalSynced,
       skipped: totalSkipped,
       shipped: totalShipped,
+      advanced: totalAdvanced,
+      cancelled: totalCancelled,
       watermark,
       errors: errors.slice(0, 10),
     })
