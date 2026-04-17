@@ -77,7 +77,7 @@ export default function Dashboard() {
   const processingCount = orders.filter((o) => o.status === 'processing').length
   const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
   const urgentCount = orders.filter(
-    (o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status) && hoursAgo(o.created_at) >= 24
+    (o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status) && hoursAgo(o.created_at) >= 72
   ).length
   const today = new Date().toISOString().slice(0, 10)
   const deliveredTodayCount = orders.filter(
@@ -201,7 +201,7 @@ export default function Dashboard() {
             dotColor="bg-orange"
           />
           <MetricCard
-            label="Urgent (>24h)"
+            label="Urgent (>3 days)"
             value={urgentCount}
             dotColor="bg-red"
           />

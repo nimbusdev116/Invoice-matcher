@@ -9,7 +9,7 @@ export default function SummaryBar({ orders }: Props) {
   const pending = orders.filter((o) => o.status === 'pending').length
   const processing = orders.filter((o) => o.status === 'processing').length
   const shipment = orders.filter((o) => o.status === 'awaiting_shipment').length
-  const urgent = orders.filter((o) => hoursAgo(o.created_at) >= 24).length
+  const urgent = orders.filter((o) => hoursAgo(o.created_at) >= 72).length
   const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
 
   return (
@@ -21,7 +21,7 @@ export default function SummaryBar({ orders }: Props) {
       <div className="flex items-center gap-1.5 text-xs">
         <div className="w-2 h-2 rounded-full bg-red" />
         <span className={`font-bold ${urgent > 0 ? 'text-red' : 'text-muted'}`}>{urgent}</span>
-        <span className="text-muted">urgent (&gt;24h)</span>
+        <span className="text-muted">urgent (&gt;3 days)</span>
       </div>
       <div className="flex items-center gap-1.5 text-xs ml-2">
         <span className="text-muted">Total value:</span>

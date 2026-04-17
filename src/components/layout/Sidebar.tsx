@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 
 interface SidebarProps {
   pendingCount: number
+  alertCount: number
 }
 
 interface NavItem {
@@ -10,6 +11,7 @@ interface NavItem {
   to: string
   icon: React.ReactNode
   badge?: number
+  badgeColor?: 'amber' | 'red'
 }
 
 /* ── Simple inline SVG icons (16x16) ── */
@@ -52,7 +54,7 @@ const icons = {
   ),
 }
 
-export default function Sidebar({ pendingCount }: SidebarProps) {
+export default function Sidebar({ pendingCount, alertCount }: SidebarProps) {
   const { profile } = useAuth()
 
   const workspaceItems: NavItem[] = [
@@ -61,7 +63,7 @@ export default function Sidebar({ pendingCount }: SidebarProps) {
     { label: 'All orders', to: '/all-orders', icon: icons.orders },
     { label: 'Deliveries', to: '/deliveries', icon: icons.deliveries },
     { label: 'POD tracker', to: '/pod-tracker', icon: icons.pod },
-    { label: 'Alerts', to: '/alerts', icon: icons.alerts },
+    { label: 'Alerts', to: '/alerts', icon: icons.alerts, badge: alertCount, badgeColor: 'red' },
   ]
 
   const settingsItems: NavItem[] = [
@@ -115,7 +117,11 @@ export default function Sidebar({ pendingCount }: SidebarProps) {
                   {item.icon}
                   <span className="flex-1">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="bg-amber/20 text-amber text-[11px] font-medium px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                    <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
+                      item.badgeColor === 'red'
+                        ? 'bg-red/20 text-red'
+                        : 'bg-amber/20 text-amber'
+                    }`}>
                       {item.badge}
                     </span>
                   )}

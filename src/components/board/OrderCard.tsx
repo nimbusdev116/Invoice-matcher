@@ -19,7 +19,7 @@ interface Props {
 
 export default function OrderCard({ order, onAdvance, onProcess, onClick }: Props) {
   const hrs = hoursAgo(order.created_at)
-  const isUrgent = hrs >= 24
+  const isUrgent = hrs >= 72
   const srcColor = SOURCE_COLORS[order.source] || '#7d8590'
   const srcLabel = SOURCE_LABELS[order.source] || order.source
   const badgeVariant = STATUS_BADGE_MAP[order.status] || ('pending' as const)
