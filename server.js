@@ -310,13 +310,13 @@ async function resolveOrderStatus(so) {
 
   if (shouldCheckInvoice) {
     try {
-      const invoiceData = await zohoGet('/invoices', {
-        salesorder_id: so.salesorder_id,
-        per_page: 5,
-      })
-      const invoices = invoiceData.invoices || []
+      const detail = await zohoGet(`/salesorders/${so.salesorder_id}`)
+      const invoices = detail.salesorder?.invoices || []
+      console.log(`  invoice lookup for ${so.salesorder_number}: found ${invoices.length} invoice(s)`)
       for (const inv of invoices) {
-        if (inv.status === 'sent' || inv.status === 'overdue' || inv.status === 'paid') {
+        const invStatus = (inv.status || '').toLowerCase()
+        console.log(`    inv ${inv.invoice_number}: status=${invStatus}`)
+        if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
           return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number }
         }
       }
