@@ -388,17 +388,21 @@ app.post('/api/zoho/sync', async (req, res) => {
 // ─── Audit Endpoint ──────────────────────────────────────────────────────────
 
 app.get('/api/zoho/audit', async (req, res) => {
-  try {
-    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
-    if (!process.env.ZOHO_REFRESH_TOKEN) return res.status(500).json({ error: 'Zoho not configured' })
+  const TIMEOUT_MS = 25000
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    res.status(504).json({ error: 'Audit timed out. Try fewer orders: ?limit=5&status=pending' })
+  }, TIMEOUT_MS)
 
-    // Soft cap at 25 per status to stay within Railway's 30s timeout
-    // Use parallel batches of 5 to keep it fast
-    const perStatus = Math.min(parseInt(req.query.limit || '25', 10), 50)
+  try {
+    if (!supabase) { clearTimeout(timer); return res.status(500).json({ error: 'Supabase not configured' }) }
+    if (!process.env.ZOHO_REFRESH_TOKEN) { clearTimeout(timer); return res.status(500).json({ error: 'Zoho not configured' }) }
+
+    const perStatus = Math.min(parseInt(req.query.limit || '10', 10), 25)
     const statusFilter = req.query.status || 'pending,processing,awaiting_shipment'
     const statuses = statusFilter.split(',').map(s => s.trim())
 
-    // First: get DB-wide counts (no limit)
     const { data: allOrders } = await supabase
       .from('orders')
       .select('status')
@@ -406,7 +410,8 @@ app.get('/api/zoho/audit', async (req, res) => {
     const dbBreakdown = {}
     for (const o of allOrders || []) dbBreakdown[o.status] = (dbBreakdown[o.status] || 0) + 1
 
-    // Then: sample up to perStatus from each status for Zoho cross-check
+    if (timedOut) return
+
     const samples = []
     for (const s of statuses) {
       const { data } = await supabase
@@ -418,13 +423,13 @@ app.get('/api/zoho/audit', async (req, res) => {
       if (data) samples.push(...data)
     }
 
-    console.log(`Audit: checking ${samples.length} sampled orders against Zoho (${perStatus} per status)`)
+    console.log(`Audit: checking ${samples.length} sampled orders (${perStatus}/status)`)
 
-    // Process in parallel batches of 5
     const results = []
     const expectedBreakdown = {}
-    for (let i = 0; i < samples.length; i += 5) {
-      const batch = samples.slice(i, i + 5)
+    for (let i = 0; i < samples.length; i += 10) {
+      if (timedOut) break
+      const batch = samples.slice(i, i + 10)
       const batchResults = await Promise.all(batch.map(async (order) => {
         if (!order.zoho_so_id) return { so_number: order.so_number, db_status: order.status, expected_status: 'no-zoho-id', match: null }
         try {
@@ -456,6 +461,9 @@ app.get('/api/zoho/audit', async (req, res) => {
       results.push(...batchResults)
     }
 
+    if (timedOut) return
+    clearTimeout(timer)
+
     const mismatches = results.filter(r => r.match === false)
     const matches = results.filter(r => r.match === true)
 
@@ -466,9 +474,11 @@ app.get('/api/zoho/audit', async (req, res) => {
       mismatches: mismatches.length,
       expected_breakdown_of_sample: expectedBreakdown,
       mismatch_details: mismatches,
-      note: `Sampled ${perStatus} orders per status. Use ?limit=50&status=pending to focus on one status.`,
+      note: `Sampled ${perStatus} per status (max 25). Use ?limit=25&status=pending to focus.`,
     })
   } catch (err) {
+    if (timedOut) return
+    clearTimeout(timer)
     console.error('Audit error:', err)
     res.status(500).json({ error: err.message })
   }
