@@ -135,6 +135,8 @@ export interface OrderMedia {
   media_type: 'image' | 'audio' | 'document'
   file_id: string | null
   file_url: string | null
+  file_data: string | null
+  mime_type: string | null
   analysis: string | null
   transcript: string | null
   telegram_chat_id: string | null

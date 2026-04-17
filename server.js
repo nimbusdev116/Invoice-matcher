@@ -646,6 +646,28 @@ app.get('/api/zoho/test', async (req, res) => {
   }
 })
 
+// ─── Media Endpoint (serves binary from order_media) ───────────────────────
+
+app.get('/api/media/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
+  const { data, error } = await supabase
+    .from('order_media')
+    .select('file_data, mime_type')
+    .eq('id', req.params.id)
+    .single()
+
+  if (error || !data?.file_data) {
+    return res.status(404).json({ error: 'Media not found' })
+  }
+
+  const buffer = Buffer.from(data.file_data, 'base64')
+  res.set('Content-Type', data.mime_type || 'image/jpeg')
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.set('Content-Length', buffer.length)
+  res.send(buffer)
+})
+
 // ─── Health Check ───────────────────────────────────────────────────────────
 
 app.get('/api/health', (req, res) => {

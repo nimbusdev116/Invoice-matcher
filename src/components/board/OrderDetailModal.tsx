@@ -135,9 +135,9 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
                     {new Date(m.created_at).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                {m.file_url && (
+                {m.media_type === 'image' && (
                   <img
-                    src={m.file_url}
+                    src={m.file_url || `/api/media/${m.id}`}
                     alt="Attachment"
                     className="rounded-lg border border-border max-h-48 object-contain mb-2"
                   />
