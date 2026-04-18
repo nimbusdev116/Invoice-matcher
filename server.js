@@ -169,45 +169,44 @@ async function setWatermark(iso) {
 
 function resolveStatusFromDetail(so) {
   const status = (so.status || '').toLowerCase()
+  const zohoSoStatus = status || null
 
-  if (status === 'void' || status === 'cancelled') return { status: 'cancelled', invoiceId: null, invoiceNumber: null }
-  if (status === 'fulfilled' || status === 'closed') return { status: 'delivered', invoiceId: null, invoiceNumber: null }
-  if (status === 'draft' || status === 'awaiting_approval') return { status: 'pending', invoiceId: null, invoiceNumber: null }
+  if (status === 'void' || status === 'cancelled') return { status: 'cancelled', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
+  if (status === 'fulfilled' || status === 'closed') return { status: 'delivered', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
+  if (status === 'draft' || status === 'awaiting_approval') return { status: 'pending', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
 
   const invoices = so.invoices || []
 
   if (invoices.length === 0) {
-    const invoicedStatus = (so.invoiced_status || '').toLowerCase()
-    if (!invoicedStatus || invoicedStatus === 'not_invoiced') {
-      return { status: 'processing', invoiceId: null, invoiceNumber: null }
-    }
-    return { status: 'processing', invoiceId: null, invoiceNumber: null }
+    return { status: 'processing', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
   }
 
   for (const inv of invoices) {
     const invStatus = (inv.status || '').toLowerCase()
     if (['sent', 'viewed', 'overdue', 'paid', 'partially_paid'].includes(invStatus)) {
-      return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number }
+      return { status: 'shipped', invoiceId: inv.invoice_id, invoiceNumber: inv.invoice_number, zohoSoStatus, zohoInvoiceStatus: invStatus }
     }
   }
 
   const firstInv = invoices[0]
-  return { status: 'awaiting_shipment', invoiceId: firstInv.invoice_id, invoiceNumber: firstInv.invoice_number }
+  const firstInvStatus = (firstInv.status || '').toLowerCase() || null
+  return { status: 'awaiting_shipment', invoiceId: firstInv.invoice_id, invoiceNumber: firstInv.invoice_number, zohoSoStatus, zohoInvoiceStatus: firstInvStatus }
 }
 
 function resolveStatusFromList(so) {
   const status = (so.status || '').toLowerCase()
+  const zohoSoStatus = status || null
 
-  if (status === 'void' || status === 'cancelled') return { status: 'cancelled', invoiceId: null, invoiceNumber: null }
-  if (status === 'fulfilled' || status === 'closed') return { status: 'delivered', invoiceId: null, invoiceNumber: null }
-  if (status === 'draft' || status === 'awaiting_approval') return { status: 'pending', invoiceId: null, invoiceNumber: null }
+  if (status === 'void' || status === 'cancelled') return { status: 'cancelled', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
+  if (status === 'fulfilled' || status === 'closed') return { status: 'delivered', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
+  if (status === 'draft' || status === 'awaiting_approval') return { status: 'pending', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
 
   const invoicedStatus = (so.invoiced_status || '').toLowerCase()
   if (!invoicedStatus || invoicedStatus === 'not_invoiced') {
-    return { status: 'processing', invoiceId: null, invoiceNumber: null }
+    return { status: 'processing', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
   }
 
-  return { status: 'needs_detail_check', invoiceId: null, invoiceNumber: null }
+  return { status: 'needs_detail_check', invoiceId: null, invoiceNumber: null, zohoSoStatus, zohoInvoiceStatus: null }
 }
 
 // ─── Auth middleware (checks Supabase JWT) ───────────────────────────────────
@@ -355,6 +354,7 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
             zoho_so_id: so.salesorder_id,
             zoho_invoice_id: invoiceId,
             zoho_invoice_number: invoiceNumber,
+            zoho_so_status: listResult.zohoSoStatus,
             reference_number: so.reference_number || null,
             customer_name: so.customer_name,
             customer_email: so.email || null,
@@ -397,7 +397,7 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
         if (cancelledSoNumbers.has(so.salesorder_number)) return so.salesorder_number
         const detail = await zohoGet(`/salesorders/${so.salesorder_id}`)
         const detailSo = detail.salesorder || so
-        const { status: mappedStatus, invoiceId, invoiceNumber } = resolveStatusFromDetail(detailSo)
+        const { status: mappedStatus, invoiceId, invoiceNumber, zohoSoStatus, zohoInvoiceStatus } = resolveStatusFromDetail(detailSo)
 
         const zohoDate = so.date || so.created_time || ''
         let orderCreatedAt
@@ -413,6 +413,8 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
           zoho_so_id: so.salesorder_id,
           zoho_invoice_id: invoiceId,
           zoho_invoice_number: invoiceNumber,
+          zoho_so_status: zohoSoStatus,
+          zoho_invoice_status: zohoInvoiceStatus,
           reference_number: so.reference_number || null,
           customer_name: so.customer_name,
           customer_email: so.email || null,
@@ -468,18 +470,25 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
         const so = detail.salesorder
         if (!so) return { action: 'skip', so_number: order.so_number }
 
-        const { status: expectedStatus, invoiceId, invoiceNumber } = resolveStatusFromDetail(so)
+        const { status: expectedStatus, invoiceId, invoiceNumber, zohoSoStatus, zohoInvoiceStatus } = resolveStatusFromDetail(so)
 
-        if (expectedStatus === order.status) return { action: 'match', so_number: order.so_number }
-
-        const updates = { status: expectedStatus }
+        const updates = {
+          zoho_so_status: zohoSoStatus,
+          zoho_invoice_status: zohoInvoiceStatus,
+        }
         if (invoiceId) {
           updates.zoho_invoice_id = invoiceId
           updates.zoho_invoice_number = invoiceNumber
         }
 
+        const statusChanged = expectedStatus !== order.status
+        if (statusChanged) {
+          updates.status = expectedStatus
+        }
+
         const { error: updateErr } = await supabase.from('orders').update(updates).eq('id', order.id)
         if (updateErr) throw new Error(`${order.so_number}: ${updateErr.message}`)
+        if (!statusChanged) return { action: 'match', so_number: order.so_number }
         console.log(`  ${order.so_number}: ${order.status} → ${expectedStatus}`)
         return { action: expectedStatus, so_number: order.so_number, from: order.status }
       }, 5)

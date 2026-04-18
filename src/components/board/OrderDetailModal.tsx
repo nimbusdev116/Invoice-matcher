@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Order, OrderStatus, FulfillmentMethod, OrderMedia } from '../../types'
-import { STATUS_LABELS, FULFILLMENT_LABELS } from '../../types'
+import { STATUS_LABELS, FULFILLMENT_LABELS, ZOHO_SO_STATUS_LABELS, ZOHO_INVOICE_STATUS_LABELS } from '../../types'
 import FulfillmentIcon from '../ui/FulfillmentIcon'
 import { formatEur, ageLabel } from '../../lib/utils'
 import { supabase } from '../../lib/supabase'
@@ -80,6 +80,19 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
         <DetailCard label="Zoho ref" value={order.reference_number || '— not created'} valueColor={order.reference_number ? 'text-blue' : 'text-muted'} />
         <DetailCard label="Age" value={ageLabel(order.created_at)} />
         <DetailCard label="SO Number" value={order.so_number || '—'} />
+        <DetailCard
+          label="Zoho Status"
+          value={
+            [
+              order.zoho_so_status && `SO: ${ZOHO_SO_STATUS_LABELS[order.zoho_so_status] || order.zoho_so_status}`,
+              order.zoho_invoice_status && `INV: ${ZOHO_INVOICE_STATUS_LABELS[order.zoho_invoice_status] || order.zoho_invoice_status}`,
+            ].filter(Boolean).join(' · ') || '—'
+          }
+          valueColor={order.zoho_so_status ? 'text-blue' : 'text-muted'}
+        />
+        {order.zoho_invoice_number && (
+          <DetailCard label="Invoice #" value={order.zoho_invoice_number} valueColor="text-blue" />
+        )}
       </div>
 
       <div className="mb-3.5">

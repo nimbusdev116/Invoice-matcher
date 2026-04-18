@@ -43,6 +43,8 @@ export interface Order {
   zoho_so_id: string | null
   zoho_invoice_id: string | null
   zoho_invoice_number: string | null
+  zoho_so_status: string | null
+  zoho_invoice_status: string | null
   reference_number: string | null
   customer_name: string
   customer_email: string | null
@@ -137,6 +139,25 @@ export interface OrderMedia {
   telegram_chat_id: string | null
   telegram_message_id: string | null
   created_at: string
+}
+
+export const ZOHO_SO_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  awaiting_approval: 'Awaiting Approval',
+  confirmed: 'Confirmed',
+  void: 'Void',
+  cancelled: 'Cancelled',
+  fulfilled: 'Fulfilled',
+  closed: 'Closed',
+}
+
+export const ZOHO_INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  viewed: 'Viewed',
+  overdue: 'Overdue',
+  paid: 'Paid',
+  partially_paid: 'Partially Paid',
 }
 
 export const BOARD_STATUSES: OrderStatus[] = ['pending', 'processing', 'awaiting_shipment']
