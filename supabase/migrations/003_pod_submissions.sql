@@ -55,5 +55,9 @@ CREATE POLICY "pod_submissions_update_privileged"
   ON public.pod_submissions FOR UPDATE
   USING (current_user_role() IN ('admin', 'manager'));
 
+CREATE POLICY "pod_submissions_delete_privileged"
+  ON public.pod_submissions FOR DELETE
+  USING (current_user_role() IN ('admin', 'manager'));
+
 -- Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.pod_submissions;

@@ -817,6 +817,18 @@ app.patch('/api/pod-submissions/:id', async (req, res) => {
   res.json(data)
 })
 
+app.delete('/api/pod-submissions/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
+  const { error } = await supabase
+    .from('pod_submissions')
+    .delete()
+    .eq('id', req.params.id)
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ success: true })
+})
+
 // ─── Health Check ───────────────────────────────────────────────────────────
 
 app.get('/api/health', (req, res) => {
