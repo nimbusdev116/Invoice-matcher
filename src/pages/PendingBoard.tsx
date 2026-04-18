@@ -22,12 +22,13 @@ const CHANNEL_TAB_ACTIVE: Record<OrderChannel, string> = {
 }
 
 export default function PendingBoard() {
-  const { orders, loading, fetchOrders, advanceOrder, updateOrderStatus, updateOrder, createOrder } = useOrders()
+  const { orders, loading, fetchOrders, deleteOrder, revertOrder, updateOrderStatus, updateOrder, createOrder } = useOrders()
   const { showToast } = useToast()
   const isMobile = useIsMobile()
 
   const [filter, setFilter] = useState<FilterMode>('all')
-  const [sort, setSort] = useState<SortMode>('age-desc')
+  const [sort, setSort] = useState<SortMode>('age-asc')
+  const [search, setSearch] = useState('')
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [showNewOrder, setShowNewOrder] = useState(false)
@@ -41,14 +42,26 @@ export default function PendingBoard() {
     if (filter !== 'all') {
       list = list.filter((o) => o.status === filter)
     }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(
+        (o) =>
+          o.customer_name.toLowerCase().includes(q) ||
+          (o.so_number && o.so_number.toLowerCase().includes(q)) ||
+          (o.reference_number && o.reference_number.toLowerCase().includes(q)) ||
+          (o.zoho_invoice_number && o.zoho_invoice_number.toLowerCase().includes(q))
+      )
+    }
     return list
-  }, [orders, filter])
+  }, [orders, filter, search])
 
   const sortedByChannel = useCallback(
     (channel: OrderChannel) => {
       const channelOrders = filteredOrders.filter((o) => o.channel === channel)
-      if (sort === 'age-desc') return channelOrders.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-      if (sort === 'age-asc') return channelOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      const getAgeDate = (o: Order) =>
+        o.status === 'awaiting_shipment' ? o.updated_at : o.created_at
+      if (sort === 'age-desc') return channelOrders.sort((a, b) => new Date(getAgeDate(a)).getTime() - new Date(getAgeDate(b)).getTime())
+      if (sort === 'age-asc') return channelOrders.sort((a, b) => new Date(getAgeDate(b)).getTime() - new Date(getAgeDate(a)).getTime())
       return channelOrders.sort((a, b) => Number(b.value) - Number(a.value))
     },
     [filteredOrders, sort]
@@ -60,23 +73,27 @@ export default function PendingBoard() {
     showToast('Board refreshed', 'success')
   }
 
-  const handleAdvance = async (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      await advanceOrder(id)
       const order = orders.find((o) => o.id === id)
-      showToast(`${order?.so_number || id.slice(0, 8)} advanced`, 'success')
+      const previousStatus = await deleteOrder(id)
+      showToast(
+        `${order?.so_number || id.slice(0, 8)} removed`,
+        'info',
+        {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await revertOrder(id, previousStatus)
+              showToast('Order restored', 'success')
+            } catch {
+              showToast('Failed to restore order', 'error')
+            }
+          },
+        }
+      )
     } catch {
-      showToast('Failed to advance order', 'error')
-    }
-  }
-
-  const handleProcess = async (id: string) => {
-    try {
-      await updateOrderStatus(id, 'processing')
-      const order = orders.find((o) => o.id === id)
-      showToast(`${order?.so_number || id.slice(0, 8)} → Processing`, 'success')
-    } catch {
-      showToast('Failed to update order', 'error')
+      showToast('Failed to delete order', 'error')
     }
   }
 
@@ -141,8 +158,10 @@ export default function PendingBoard() {
       <FilterBar
         filter={filter}
         sort={sort}
+        search={search}
         onFilterChange={setFilter}
         onSortChange={setSort}
+        onSearchChange={setSearch}
       />
 
       <div className="flex-1 overflow-hidden p-3 md:p-4 md:px-5">
@@ -179,8 +198,7 @@ export default function PendingBoard() {
                   <div key={order.id} style={{ animation: `fadeIn ${0.1 + i * 0.03}s ease-out` }}>
                     <OrderCard
                       order={order}
-                      onAdvance={handleAdvance}
-                      onProcess={handleProcess}
+                      onDelete={handleDelete}
                       onClick={handleCardClick}
                     />
                   </div>
@@ -196,8 +214,7 @@ export default function PendingBoard() {
                 channel={ch}
                 orders={sortedByChannel(ch)}
                 allOrdersForChannel={orders.filter((o) => o.channel === ch)}
-                onAdvance={handleAdvance}
-                onProcess={handleProcess}
+                onDelete={handleDelete}
                 onCardClick={handleCardClick}
               />
             ))}

@@ -37,8 +37,7 @@ interface Props {
   channel: OrderChannel
   orders: Order[]
   allOrdersForChannel: Order[]
-  onAdvance: (id: string) => void
-  onProcess: (id: string) => void
+  onDelete: (id: string) => void
   onCardClick: (id: string) => void
 }
 
@@ -46,8 +45,7 @@ export default function BoardColumn({
   channel,
   orders,
   allOrdersForChannel,
-  onAdvance,
-  onProcess,
+  onDelete,
   onCardClick,
 }: Props) {
   const config = CHANNEL_CONFIG[channel]
@@ -83,8 +81,7 @@ export default function BoardColumn({
             <div key={order.id} style={{ animation: `fadeIn ${0.1 + i * 0.03}s ease-out` }}>
               <OrderCard
                 order={order}
-                onAdvance={onAdvance}
-                onProcess={onProcess}
+                onDelete={onDelete}
                 onClick={onCardClick}
               />
             </div>

@@ -7,10 +7,11 @@ interface Toast {
   id: number
   message: string
   type: ToastType
+  action?: { label: string; onClick: () => void }
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type?: ToastType) => void
+  showToast: (message: string, type?: ToastType, action?: { label: string; onClick: () => void }) => void
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined)
@@ -43,13 +44,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextId = useRef(0)
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info', action?: { label: string; onClick: () => void }) => {
     const id = nextId.current++
-    setToasts((prev) => [...prev, { id, message, type }])
+    setToasts((prev) => [...prev, { id, message, type, action }])
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 3000)
+    }, action ? 6000 : 3000)
+  }, [])
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
   return (
@@ -64,7 +69,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             style={{ animation: 'slideUp 0.2s ease-out' }}
           >
             {TOAST_ICONS[toast.type]}
-            <span className="text-text">{toast.message}</span>
+            <span className="text-text flex-1">{toast.message}</span>
+            {toast.action && (
+              <button
+                onClick={() => { toast.action!.onClick(); dismissToast(toast.id) }}
+                className="text-blue font-semibold text-[12px] hover:text-blue/80 cursor-pointer ml-2 shrink-0"
+              >
+                {toast.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -274,6 +274,14 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
     const syncStartedAt = new Date().toISOString()
     console.log(`Sync starting. watermark=${watermark}, full=${fullResync}`)
 
+    // Fetch cancelled order so_numbers to skip during upsert (user-deleted orders)
+    const { data: cancelledRows } = await supabase
+      .from('orders')
+      .select('so_number')
+      .eq('status', 'cancelled')
+    const cancelledSoNumbers = new Set((cancelledRows || []).map(r => r.so_number).filter(Boolean))
+    console.log(`Found ${cancelledSoNumbers.size} cancelled orders to skip during sync`)
+
     // ── Phase 1: Fetch new/modified SOs from Zoho ──
 
     let page = 1
@@ -314,6 +322,11 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
                 continue
               }
             }
+          }
+
+          if (cancelledSoNumbers.has(so.salesorder_number)) {
+            totalSkipped++
+            continue
           }
 
           const { source, channel } = classifySource(so.reference_number, so.customer_name)
@@ -381,6 +394,7 @@ app.post('/api/zoho/sync', requireAuth, async (req, res) => {
     if (needsDetailCheck.length > 0 && !timedOut) {
       console.log(`Phase 1b: Checking ${needsDetailCheck.length} SOs for invoice details (parallel batches of 5)`)
       const detailResults = await zohoGetParallel(needsDetailCheck, async ({ so, source, channel }) => {
+        if (cancelledSoNumbers.has(so.salesorder_number)) return so.salesorder_number
         const detail = await zohoGet(`/salesorders/${so.salesorder_id}`)
         const detailSo = detail.salesorder || so
         const { status: mappedStatus, invoiceId, invoiceNumber } = resolveStatusFromDetail(detailSo)

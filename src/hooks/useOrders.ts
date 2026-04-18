@@ -85,6 +85,23 @@ export function useOrders() {
     [orders, updateOrderStatus]
   )
 
+  const deleteOrder = useCallback(
+    async (orderId: string): Promise<OrderStatus> => {
+      const order = orders.find((o) => o.id === orderId)
+      const previousStatus = order?.status ?? 'pending'
+      await updateOrderStatus(orderId, 'cancelled')
+      return previousStatus
+    },
+    [orders, updateOrderStatus]
+  )
+
+  const revertOrder = useCallback(
+    async (orderId: string, previousStatus: OrderStatus) => {
+      await updateOrderStatus(orderId, previousStatus)
+    },
+    [updateOrderStatus]
+  )
+
   const updateOrder = useCallback(
     async (
       orderId: string,
@@ -144,6 +161,8 @@ export function useOrders() {
     fetchOrders,
     updateOrderStatus,
     advanceOrder,
+    deleteOrder,
+    revertOrder,
     updateOrder,
     createOrder,
   }
