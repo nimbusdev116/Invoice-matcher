@@ -776,6 +776,47 @@ app.get('/api/media/:id', async (req, res) => {
   res.send(buffer)
 })
 
+// ─── POD Submission Endpoints ─────────────────────────────────────────────
+
+app.get('/api/pod-media/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
+  const { data, error } = await supabase
+    .from('pod_submissions')
+    .select('file_data, mime_type')
+    .eq('id', req.params.id)
+    .single()
+
+  if (error || !data?.file_data) {
+    return res.status(404).json({ error: 'Media not found' })
+  }
+
+  const buffer = Buffer.from(data.file_data, 'base64')
+  res.set('Content-Type', data.mime_type || 'image/jpeg')
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.set('Content-Length', buffer.length)
+  res.send(buffer)
+})
+
+app.patch('/api/pod-submissions/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
+
+  const { status } = req.body
+  if (!['pending', 'verified', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' })
+  }
+
+  const { data, error } = await supabase
+    .from('pod_submissions')
+    .update({ status })
+    .eq('id', req.params.id)
+    .select()
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
 // ─── Health Check ───────────────────────────────────────────────────────────
 
 app.get('/api/health', (req, res) => {
@@ -879,7 +920,14 @@ async function handleTelegramUpdate(update) {
 
   const text = msg.text || ''
   const caption = msg.caption || ''
-  const notes = text || caption || 'Telegram message'
+  const fullText = text || caption || ''
+
+  // Check if this is a /POD submission
+  if (/^[\/\\]?pod\b/i.test(fullText.trim())) {
+    return handlePodSubmission(msg, senderName, chatId, messageId, fullText)
+  }
+
+  const notes = fullText || 'Telegram message'
 
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
@@ -949,4 +997,86 @@ async function handleTelegramUpdate(update) {
   }
 
   console.log(`Telegram → ${soNumber} from ${senderName} [${mediaType || 'text'}]`)
+}
+
+async function handlePodSubmission(msg, senderName, chatId, messageId, fullText) {
+  const podText = fullText.replace(/^[\/\\]?pod\s*/i, '').trim()
+  const soMatch = podText.match(/\b(SO-\d+|MAN-\d{8}-\w+)\b/i)
+  const soNumber = soMatch ? soMatch[1] : null
+  const captionText = podText.replace(/\b(SO-\d+|MAN-\d{8}-\w+)\b/i, '').trim() || null
+
+  let orderId = null
+  if (soNumber) {
+    const { data: matchedOrder } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('so_number', soNumber)
+      .single()
+    if (matchedOrder) orderId = matchedOrder.id
+  }
+
+  let mediaType = 'text'
+  let fileId = null
+  let fileData = null
+  let mimeType = null
+
+  if (msg.photo && msg.photo.length > 0) {
+    mediaType = 'image'
+    fileId = msg.photo[msg.photo.length - 1].file_id
+  } else if (msg.voice) {
+    mediaType = 'audio'
+    fileId = msg.voice.file_id
+  } else if (msg.audio) {
+    mediaType = 'audio'
+    fileId = msg.audio.file_id
+  } else if (msg.document) {
+    const mime = (msg.document.mime_type || '').toLowerCase()
+    if (mime.startsWith('image/')) mediaType = 'image'
+    else if (mime.startsWith('audio/')) mediaType = 'audio'
+    else mediaType = 'document'
+    fileId = msg.document.file_id
+  }
+
+  if (fileId) {
+    const file = await downloadTelegramFile(fileId)
+    if (file) {
+      fileData = file.base64
+      mimeType = file.mimeType
+    }
+  }
+
+  const { error } = await supabase
+    .from('pod_submissions')
+    .insert({
+      order_id: orderId,
+      so_number: soNumber,
+      sender_name: senderName,
+      telegram_chat_id: chatId,
+      telegram_message_id: messageId,
+      media_type: mediaType,
+      file_data: fileData,
+      mime_type: mimeType,
+      caption: captionText,
+      status: 'pending',
+    })
+
+  if (error) {
+    console.error('POD submission insert failed:', error.message)
+    return
+  }
+
+  if (orderId) {
+    await supabase
+      .from('orders')
+      .update({ pod_received: true })
+      .eq('id', orderId)
+  }
+
+  await tgApi('sendMessage', {
+    chat_id: chatId,
+    text: `POD received${soNumber ? ` for ${soNumber}` : ''}. Thank you!`,
+    reply_to_message_id: messageId,
+  })
+
+  console.log(`Telegram POD → ${soNumber || 'unlinked'} from ${senderName} [${mediaType}]`)
 }

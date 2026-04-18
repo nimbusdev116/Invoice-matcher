@@ -160,6 +160,22 @@ export const ZOHO_INVOICE_STATUS_LABELS: Record<string, string> = {
   partially_paid: 'Partially Paid',
 }
 
+export interface PodSubmission {
+  id: string
+  order_id: string | null
+  so_number: string | null
+  sender_name: string
+  telegram_chat_id: string | null
+  telegram_message_id: string | null
+  media_type: 'image' | 'audio' | 'document' | 'text' | null
+  file_data: string | null
+  mime_type: string | null
+  caption: string | null
+  status: 'pending' | 'verified' | 'rejected'
+  created_at: string
+  updated_at: string
+}
+
 export const BOARD_STATUSES: OrderStatus[] = ['pending', 'processing', 'awaiting_shipment']
 
 export const STATUS_FLOW: Partial<Record<OrderStatus, OrderStatus>> = {
