@@ -19,13 +19,13 @@ const PILLS: { mode: FilterMode; label: string; activeClass: string }[] = [
 
 export default function FilterBar({ filter, sort, onFilterChange, onSortChange }: Props) {
   return (
-    <div className="flex items-center gap-2 px-6 py-2.5 border-b border-border bg-s1/50 shrink-0">
-      <span className="text-[10px] text-muted/50 uppercase tracking-wider font-semibold mr-1">Filter</span>
+    <div className="flex items-center gap-2 px-4 md:px-6 py-2.5 border-b border-border bg-s1/50 shrink-0 overflow-x-auto scrollbar-hide flex-wrap md:flex-nowrap">
+      <span className="text-[10px] text-muted/50 uppercase tracking-wider font-semibold mr-1 shrink-0">Filter</span>
       {PILLS.map((p) => (
         <button
           key={p.mode}
           onClick={() => onFilterChange(p.mode)}
-          className={`px-3 py-1 rounded-lg border text-[11px] cursor-pointer transition-all duration-150 ${
+          className={`px-3 py-1 rounded-lg border text-[11px] cursor-pointer transition-all duration-150 shrink-0 ${
             filter === p.mode
               ? `font-semibold ${p.activeClass}`
               : 'border-transparent text-muted hover:text-text hover:bg-white/[0.03]'

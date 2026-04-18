@@ -128,7 +128,7 @@ export default function Deliveries() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center px-6">
+      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center px-4 md:px-6">
         <h1 className="text-sm font-semibold text-text">Deliveries</h1>
       </header>
 
@@ -145,9 +145,9 @@ export default function Deliveries() {
             </div>
           </div>
         ) : (
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
               <StatCard label="Awaiting Shipment" value={awaitingShipmentCount} accent="orange" />
               <StatCard label="In Transit" value={shippedCount} accent="purple" />
               <StatCard label="Delivered Today" value={deliveredTodayCount} accent="green" />
@@ -155,14 +155,14 @@ export default function Deliveries() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 mb-5">
+            <div className="flex flex-wrap items-center gap-3 mb-5 overflow-x-auto scrollbar-hide">
               <div className="flex items-center gap-1.5">
                 {FILTER_PILLS.map((pill) => (
                   <button
                     key={pill.value}
                     onClick={() => setStatusFilter(pill.value)}
                     className={cn(
-                      'px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all duration-150 cursor-pointer',
+                      'px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all duration-150 cursor-pointer shrink-0',
                       statusFilter === pill.value
                         ? 'bg-blue/12 text-blue border-blue/25'
                         : 'bg-transparent text-muted border-transparent hover:text-text hover:bg-white/[0.03]'
@@ -299,7 +299,7 @@ function DeliveryCard({ order, onClick, index }: { order: Order; onClick?: () =>
           <span className="text-muted/40">Not yet shipped</span>
         )}
 
-        {order.pod_required && !order.pod_received && (
+        {!order.pod_received && order.status === 'shipped' && (
           <span className="bg-amber/12 text-amber text-[10px] font-semibold py-0.5 px-2 rounded-md">
             Awaiting POD
           </span>

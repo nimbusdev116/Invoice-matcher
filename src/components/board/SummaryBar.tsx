@@ -13,11 +13,11 @@ export default function SummaryBar({ orders }: Props) {
   const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
 
   return (
-    <div className="flex items-center gap-5 px-6 py-2.5 bg-s1 border-b border-border shrink-0">
+    <div className="flex items-center gap-5 px-4 md:px-6 py-2.5 bg-s1 border-b border-border shrink-0 overflow-x-auto scrollbar-hide">
       <SumItem color="bg-amber" value={pending} label="pending" />
       <SumItem color="bg-blue" value={processing} label="processing" />
       <SumItem color="bg-orange" value={shipment} label="awaiting" />
-      <div className="flex-1" />
+      <div className="hidden md:block flex-1" />
       <div className="flex items-center gap-1.5 text-xs">
         <div className={`w-1.5 h-1.5 rounded-full ${urgent > 0 ? 'bg-red' : 'bg-muted/30'}`} />
         <span className={`font-bold ${urgent > 0 ? 'text-red' : 'text-muted/50'}`}>{urgent}</span>
@@ -34,7 +34,7 @@ export default function SummaryBar({ orders }: Props) {
 
 function SumItem({ color, value, label }: { color: string; value: number; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs">
+    <div className="flex items-center gap-1.5 text-xs shrink-0">
       <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
       <span className="font-bold text-text">{value}</span>
       <span className="text-muted/60">{label}</span>

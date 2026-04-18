@@ -2,6 +2,7 @@ import { useEffect, useState, createContext, useContext, useCallback } from 'rea
 import { Outlet } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Sidebar from './Sidebar'
+import BottomNav from './BottomNav'
 
 interface ShellContext { sidebarOpen: boolean; toggleSidebar: () => void }
 const ShellCtx = createContext<ShellContext>({ sidebarOpen: true, toggleSidebar: () => {} })
@@ -45,13 +46,14 @@ export default function AppShell() {
 
   return (
     <ShellCtx.Provider value={{ sidebarOpen, toggleSidebar }}>
-      <div className="flex h-screen overflow-hidden bg-bg">
-        <div className={`shrink-0 transition-all duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'} overflow-hidden`}>
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-bg">
+        <div className={`hidden md:block shrink-0 transition-all duration-200 ${sidebarOpen ? 'w-[220px]' : 'w-0'} overflow-hidden`}>
           <Sidebar pendingCount={pendingCount} alertCount={alertCount} />
         </div>
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden pb-[56px] md:pb-0">
           <Outlet />
         </main>
+        <BottomNav pendingCount={pendingCount} alertCount={alertCount} />
       </div>
     </ShellCtx.Provider>
   )

@@ -11,11 +11,11 @@ export default function Topbar({ title, onRefresh, onNewOrder, lastUpdated }: To
   const { sidebarOpen, toggleSidebar } = useShell()
 
   return (
-    <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center justify-between px-6">
+    <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="flex items-center justify-center w-7 h-7 rounded-lg border border-border hover:border-border2 text-muted hover:text-text transition-all cursor-pointer"
+          className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg border border-border hover:border-border2 text-muted hover:text-text transition-all cursor-pointer"
           title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? (
@@ -53,7 +53,7 @@ export default function Topbar({ title, onRefresh, onNewOrder, lastUpdated }: To
         {onNewOrder && (
           <button
             onClick={onNewOrder}
-            className="flex items-center gap-1.5 bg-green/10 hover:bg-green/20 text-green text-[11px] font-medium rounded-lg px-3 py-1.5 border border-green/20 transition-all cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 bg-green/10 hover:bg-green/20 text-green text-[11px] font-medium rounded-lg px-3 py-1.5 border border-green/20 transition-all cursor-pointer"
           >
             <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
               <path d="M7.75 2a.75.75 0 01.75.75V7h4.25a.75.75 0 010 1.5H8.5v4.25a.75.75 0 01-1.5 0V8.5H2.75a.75.75 0 010-1.5H7V2.75A.75.75 0 017.75 2z" />

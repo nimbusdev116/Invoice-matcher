@@ -84,7 +84,7 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
 
       <div className="mb-3.5">
         <label className="text-[11px] text-muted uppercase tracking-wider mb-1.5 block">Move to status</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {ALL_STATUSES.map((s) => (
             <button
               key={s.value}

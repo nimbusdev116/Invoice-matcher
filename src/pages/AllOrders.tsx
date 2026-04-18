@@ -190,7 +190,7 @@ export default function AllOrders() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="h-14 bg-s1 border-b border-border flex items-center justify-between px-6 shrink-0">
+      <div className="h-14 bg-s1 border-b border-border flex items-center justify-between px-4 md:px-6 shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-text">All orders</h1>
           <span className="text-[11px] text-muted bg-s2 px-2 py-0.5 rounded-md">
@@ -210,7 +210,7 @@ export default function AllOrders() {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-s1/50 border-b border-border px-6 py-3 flex flex-wrap items-center gap-3 shrink-0">
+      <div className="bg-s1/50 border-b border-border px-4 md:px-6 py-3 flex flex-wrap items-center gap-3 shrink-0">
         <div className="relative">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none"
@@ -226,7 +226,7 @@ export default function AllOrders() {
             placeholder="Search orders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-s2 border border-border rounded-lg text-[13px] text-text placeholder:text-muted/50 py-2 pl-9 pr-3 w-64 outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/20 transition-all"
+            className="bg-s2 border border-border rounded-lg text-[13px] text-text placeholder:text-muted/50 py-2 pl-9 pr-3 w-full md:w-64 outline-none focus:border-blue/50 focus:ring-1 focus:ring-blue/20 transition-all"
           />
         </div>
 
@@ -286,71 +286,103 @@ export default function AllOrders() {
             </div>
           </div>
         ) : (
-          <table className="w-full border-collapse min-w-[900px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-s1 border-b border-border">
-                <TH label="SO Number" sortable="so_number" />
-                <TH label="Customer" sortable="customer_name" />
-                <TH label="Channel" />
-                <TH label="Status" />
-                <TH label="Value" sortable="value" className="text-right" />
-                <TH label="Fulfillment" />
-                <TH label="Age" sortable="created_at" />
-                <TH label="Rep" />
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <table className="hidden md:table w-full border-collapse min-w-[900px]">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-s1 border-b border-border">
+                  <TH label="SO Number" sortable="so_number" />
+                  <TH label="Customer" sortable="customer_name" />
+                  <TH label="Channel" />
+                  <TH label="Status" />
+                  <TH label="Value" sortable="value" className="text-right" />
+                  <TH label="Fulfillment" />
+                  <TH label="Age" sortable="created_at" />
+                  <TH label="Rep" />
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((order, i) => (
+                  <tr
+                    key={order.id}
+                    onClick={() => handleRowClick(order)}
+                    className={cn(
+                      'border-b border-border/50 hover:bg-blue/[0.04] transition-colors cursor-pointer',
+                      i % 2 === 1 && 'bg-s1/30',
+                    )}
+                    style={{ animation: `fadeIn ${0.1 + i * 0.02}s ease-out` }}
+                  >
+                    <td className="text-[13px] py-3 px-4 font-medium whitespace-nowrap">
+                      {order.so_number ?? <span className="text-muted/50 italic">--</span>}
+                    </td>
+                    <td className="text-[13px] py-3 px-4 max-w-[200px] truncate">
+                      {order.customer_name}
+                    </td>
+                    <td className="text-[13px] py-3 px-4 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', CHANNEL_DOT_COLOR[order.channel])} />
+                        <span className="text-muted">{CHANNEL_CONFIG[order.channel].label}</span>
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant={STATUS_TO_BADGE[order.status]}>
+                        {STATUS_LABELS[order.status]}
+                      </Badge>
+                    </td>
+                    <td className="text-[13px] py-3 px-4 text-right tabular-nums whitespace-nowrap font-medium">
+                      {formatEur(order.value)}
+                    </td>
+                    <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
+                      {order.fulfillment_method
+                        ? FULFILLMENT_LABELS[order.fulfillment_method]
+                        : <span className="text-muted/40">--</span>}
+                    </td>
+                    <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
+                      {ageLabel(order.created_at)}
+                    </td>
+                    <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted truncate max-w-[100px]">
+                      {order.rep_id ?? <span className="text-muted/40">--</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="md:hidden p-4 flex flex-col gap-2">
               {paged.map((order, i) => (
-                <tr
+                <div
                   key={order.id}
                   onClick={() => handleRowClick(order)}
-                  className={cn(
-                    'border-b border-border/50 hover:bg-blue/[0.04] transition-colors cursor-pointer',
-                    i % 2 === 1 && 'bg-s1/30',
-                  )}
-                  style={{ animation: `fadeIn ${0.1 + i * 0.02}s ease-out` }}
+                  className="bg-s1 border border-border rounded-xl p-3.5 cursor-pointer hover:border-border2 transition-all"
+                  style={{ animation: `fadeIn ${0.1 + i * 0.03}s ease-out` }}
                 >
-                  <td className="text-[13px] py-3 px-4 font-medium whitespace-nowrap">
-                    {order.so_number ?? <span className="text-muted/50 italic">--</span>}
-                  </td>
-                  <td className="text-[13px] py-3 px-4 max-w-[200px] truncate">
-                    {order.customer_name}
-                  </td>
-                  <td className="text-[13px] py-3 px-4 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', CHANNEL_DOT_COLOR[order.channel])} />
-                      <span className="text-muted">{CHANNEL_CONFIG[order.channel].label}</span>
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-text truncate mr-2">{order.customer_name}</span>
                     <Badge variant={STATUS_TO_BADGE[order.status]}>
                       {STATUS_LABELS[order.status]}
                     </Badge>
-                  </td>
-                  <td className="text-[13px] py-3 px-4 text-right tabular-nums whitespace-nowrap font-medium">
-                    {formatEur(order.value)}
-                  </td>
-                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
-                    {order.fulfillment_method
-                      ? FULFILLMENT_LABELS[order.fulfillment_method]
-                      : <span className="text-muted/40">--</span>}
-                  </td>
-                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted">
-                    {ageLabel(order.created_at)}
-                  </td>
-                  <td className="text-[13px] py-3 px-4 whitespace-nowrap text-muted truncate max-w-[100px]">
-                    {order.rep_id ?? <span className="text-muted/40">--</span>}
-                  </td>
-                </tr>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2 text-[11px] text-muted/60">
+                    <span className="text-text/80">{order.so_number ?? '--'}</span>
+                    <span className="text-border">|</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className={cn('w-1.5 h-1.5 rounded-full', CHANNEL_DOT_COLOR[order.channel])} />
+                      {CHANNEL_CONFIG[order.channel].label}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-muted">{ageLabel(order.created_at)}</span>
+                    <span className="text-text font-semibold tabular-nums">{formatEur(order.value)}</span>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
 
       {/* Pagination */}
       {!loading && sorted.length > 0 && (
-        <div className="bg-s1 border-t border-border px-6 py-2.5 flex items-center justify-between shrink-0">
+        <div className="bg-s1 border-t border-border px-4 md:px-6 py-2.5 flex items-center justify-between shrink-0">
           <button
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -361,7 +393,10 @@ export default function AllOrders() {
           >
             Previous
           </button>
-          <div className="flex items-center gap-1">
+          <span className="md:hidden text-[11px] text-muted tabular-nums">
+            {safePage} / {totalPages}
+          </span>
+          <div className="hidden md:flex items-center gap-1">
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
               const pageNum = i + 1
               return (

@@ -89,7 +89,7 @@ export default function NewOrderModal({ open, onClose, onCreate }: Props) {
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <Input
             label="Customer name"

@@ -81,7 +81,7 @@ export default function PodTracker() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center px-6">
+      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center px-4 md:px-6">
         <h1 className="text-sm font-semibold text-text">POD Tracker</h1>
       </header>
 
@@ -97,9 +97,9 @@ export default function PodTracker() {
             </div>
           </div>
         ) : (
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
               <StatCard label="Awaiting POD" value={awaitingPodCount} accent="amber" />
               <StatCard label="POD Received" value={podReceivedCount} accent="green" />
               <StatCard label="Total Courier" value={totalCourierCount} accent="blue" />
@@ -121,7 +121,7 @@ export default function PodTracker() {
                   {awaitingPod.map((order, i) => (
                     <div
                       key={order.id}
-                      className="bg-s1 border border-border rounded-xl p-4 flex items-center gap-4 hover:border-border2 transition-all"
+                      className="bg-s1 border border-border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 hover:border-border2 transition-all"
                       style={{ animation: `fadeIn ${0.1 + i * 0.03}s ease-out` }}
                     >
                       <div className="flex-1 min-w-0">
@@ -153,7 +153,7 @@ export default function PodTracker() {
                         size="sm"
                         disabled={updatingIds.has(order.id)}
                         onClick={() => handleMarkPodReceived(order.id)}
-                        className={cn(updatingIds.has(order.id) && 'opacity-50')}
+                        className={cn('w-full md:w-auto', updatingIds.has(order.id) && 'opacity-50')}
                       >
                         {updatingIds.has(order.id) ? 'Saving...' : 'Mark POD Received'}
                       </Button>

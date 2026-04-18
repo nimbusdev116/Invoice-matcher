@@ -185,14 +185,14 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center justify-between px-6">
+      <header className="h-14 shrink-0 bg-s1 border-b border-border flex items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-4">
           <h1 className="text-sm font-semibold text-text">Dashboard</h1>
           {lastUpdated && (
             <span className="text-[11px] text-muted/70">Last updated {lastUpdated}</span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-3">
           <Toggle
             enabled={liveUpdates}
             onChange={setLiveUpdates}
@@ -238,9 +238,9 @@ export default function Dashboard() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {/* Top metrics row */}
-        <div className="grid grid-cols-4 gap-4 mb-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6" style={{ animation: 'fadeIn 0.3s ease-out' }}>
           <MetricCard
             icon={<ClockIcon />}
             label="Active Orders"
@@ -300,9 +300,9 @@ export default function Dashboard() {
         </div>
 
         {/* Two-column section */}
-        <div className="grid grid-cols-5 gap-4" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4" style={{ animation: 'fadeIn 0.5s ease-out' }}>
           {/* Channel Breakdown - 2 cols */}
-          <div className="col-span-2 bg-s1 border border-border rounded-xl p-5">
+          <div className="md:col-span-2 bg-s1 border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold text-text mb-4">Channels</h2>
             <div className="flex flex-col gap-4">
               {channelData.map((cd) => {
@@ -339,7 +339,7 @@ export default function Dashboard() {
           </div>
 
           {/* Recent Activity - 3 cols */}
-          <div className="col-span-3 bg-s1 border border-border rounded-xl p-5">
+          <div className="md:col-span-3 bg-s1 border border-border rounded-xl p-5">
             <h2 className="text-sm font-semibold text-text mb-4">Recent Activity</h2>
             {history.length === 0 ? (
               <div className="flex items-center justify-center py-10 text-muted">

@@ -40,6 +40,29 @@
   50% { opacity: 0.6; }
 }
 
+@keyframes slideFromBottom {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 767px) {
+  .modal-card {
+    animation: slideFromBottom 0.25s ease-out !important;
+  }
+}
+
 html, body, #root {
   height: 100%;
   overflow: hidden;
