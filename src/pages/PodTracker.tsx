@@ -171,6 +171,29 @@ export default function PodTracker() {
     })
   }
 
+  async function handleAssignPod(submissionId: string, orderId: string, soNumber: string) {
+    try {
+      const res = await fetch(`/api/pod-submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, so_number: soNumber }),
+      })
+
+      if (!res.ok) throw new Error('Failed to assign')
+
+      const updated = await res.json()
+      showToast('POD assigned to invoice', 'success')
+      setSubmissions((prev) =>
+        prev.map((s) => (s.id === submissionId ? { ...s, order_id: updated.order_id, so_number: updated.so_number } : s))
+      )
+      if (selectedSubmission?.id === submissionId) {
+        setSelectedSubmission((prev) => prev ? { ...prev, order_id: updated.order_id, so_number: updated.so_number } : null)
+      }
+    } catch {
+      showToast('Failed to assign POD to invoice', 'error')
+    }
+  }
+
   async function handleDownload(submission: PodSubmission) {
     try {
       const res = await fetch(`/api/pod-media/${submission.id}`)
@@ -399,6 +422,9 @@ export default function PodTracker() {
         onReject={() => selectedSubmission && handleSubmissionStatus(selectedSubmission.id, 'rejected')}
         onDelete={() => selectedSubmission && handleDelete(selectedSubmission.id)}
         onDownload={() => selectedSubmission && handleDownload(selectedSubmission)}
+        onAssign={async (orderId, soNumber) => {
+          if (selectedSubmission) await handleAssignPod(selectedSubmission.id, orderId, soNumber)
+        }}
       />
     </div>
   )
@@ -416,6 +442,7 @@ function PodSubmissionDetailModal({
   onReject,
   onDelete,
   onDownload,
+  onAssign,
 }: {
   submission: PodSubmission | null
   open: boolean
@@ -426,12 +453,45 @@ function PodSubmissionDetailModal({
   onReject: () => void
   onDelete: () => void
   onDownload: () => void
+  onAssign: (orderId: string, soNumber: string) => Promise<void>
 }) {
   const [confirming, setConfirming] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Order[]>([])
+  const [searching, setSearching] = useState(false)
+  const [assigning, setAssigning] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
-    if (!open) setConfirming(false)
+    if (!open) {
+      setConfirming(false)
+      setSearchQuery('')
+      setSearchResults([])
+      setShowSearch(false)
+    }
   }, [open])
+
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      const q = searchQuery.trim()
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .or(`so_number.ilike.%${q}%,zoho_invoice_number.ilike.%${q}%,reference_number.ilike.%${q}%,customer_name.ilike.%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      setSearchResults((data as Order[]) ?? [])
+      setSearching(false)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   if (!submission) return null
 
@@ -439,6 +499,15 @@ function PodSubmissionDetailModal({
     pending: 'bg-amber/12 text-amber',
     verified: 'bg-green/12 text-green',
     rejected: 'bg-red/12 text-red',
+  }
+
+  async function handleAssign(order: Order) {
+    setAssigning(true)
+    await onAssign(order.id, order.so_number || '')
+    setAssigning(false)
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchResults([])
   }
 
   return (
@@ -523,6 +592,106 @@ function PodSubmissionDetailModal({
         <div className="mb-4">
           <label className="text-[10px] uppercase tracking-wider text-muted mb-1 block">Caption</label>
           <p className="text-[13px] text-text/80 leading-relaxed whitespace-pre-wrap">{submission.caption}</p>
+        </div>
+      )}
+
+      {/* Assign to Invoice */}
+      {!submission.order_id && (
+        <div className="mb-4">
+          <label className="text-[10px] uppercase tracking-wider text-muted mb-1.5 block">Assign to Invoice</label>
+          {!showSearch ? (
+            <button
+              onClick={() => setShowSearch(true)}
+              className="w-full bg-s2 border border-dashed border-blue/30 rounded-lg p-3 flex items-center justify-center gap-2 text-blue text-xs font-medium hover:bg-blue/5 hover:border-blue/50 transition-all cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              Search & assign an invoice
+            </button>
+          ) : (
+            <div className="bg-s2 border border-border rounded-lg p-3">
+              <div className="relative mb-2">
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by SO#, invoice#, ref#, or customer..."
+                  autoFocus
+                  className="w-full bg-s1 border border-border rounded-md py-2 pl-8 pr-3 text-[13px] text-text outline-none focus:border-blue/50 transition placeholder:text-muted/40"
+                />
+              </div>
+
+              {searching && (
+                <div className="flex items-center gap-2 py-3 justify-center text-muted">
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                    <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <span className="text-xs">Searching...</span>
+                </div>
+              )}
+
+              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                <div className="py-3 text-center text-xs text-muted/60">No orders found</div>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="max-h-48 overflow-y-auto flex flex-col gap-1.5">
+                  {searchResults.map((order) => (
+                    <button
+                      key={order.id}
+                      disabled={assigning}
+                      onClick={() => handleAssign(order)}
+                      className="w-full text-left bg-s1 border border-border rounded-lg p-2.5 hover:border-blue/40 hover:bg-blue/5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[13px] font-semibold text-text truncate mr-2">{order.customer_name}</span>
+                        <span className="text-[11px] text-text font-medium tabular-nums shrink-0">{formatEur(order.value)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted/60">
+                        {order.so_number && <span className="text-blue font-medium">{order.so_number}</span>}
+                        {order.zoho_invoice_number && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span>INV: {order.zoho_invoice_number}</span>
+                          </>
+                        )}
+                        {order.reference_number && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span>Ref: {order.reference_number}</span>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]) }}
+                className="mt-2 text-[10px] text-muted/60 hover:text-muted cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {submission.order_id && (
+        <div className="mb-4">
+          <label className="text-[10px] uppercase tracking-wider text-muted mb-1.5 block">Linked Invoice</label>
+          <div className="bg-green/8 border border-green/20 rounded-lg p-2.5 flex items-center gap-2">
+            <svg className="w-4 h-4 text-green shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <span className="text-[13px] font-semibold text-green">{submission.so_number || 'Linked'}</span>
+          </div>
         </div>
       )}
 

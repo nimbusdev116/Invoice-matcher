@@ -803,14 +803,31 @@ app.get('/api/pod-media/:id', async (req, res) => {
 app.patch('/api/pod-submissions/:id', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' })
 
-  const { status } = req.body
-  if (!['pending', 'verified', 'rejected'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status' })
+  const { status, order_id, so_number } = req.body
+  const updates = {}
+
+  if (status) {
+    if (!['pending', 'verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' })
+    }
+    updates.status = status
+  }
+
+  if (order_id !== undefined) {
+    updates.order_id = order_id
+    updates.so_number = so_number || null
+    if (order_id) {
+      await supabase.from('orders').update({ pod_received: true }).eq('id', order_id)
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No updates provided' })
   }
 
   const { data, error } = await supabase
     .from('pod_submissions')
-    .update({ status })
+    .update(updates)
     .eq('id', req.params.id)
     .select()
     .single()

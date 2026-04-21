@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { Order, OrderStatus, FulfillmentMethod, OrderMedia } from '../../types'
+import type { Order, OrderStatus, FulfillmentMethod, OrderMedia, PodSubmission } from '../../types'
 import { STATUS_LABELS, FULFILLMENT_LABELS, ZOHO_SO_STATUS_LABELS, ZOHO_INVOICE_STATUS_LABELS } from '../../types'
 import FulfillmentIcon from '../ui/FulfillmentIcon'
 import { formatEur, ageLabel } from '../../lib/utils'
@@ -31,6 +31,7 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
   const [fulfillment, setFulfillment] = useState<FulfillmentMethod | null>(null)
   const [notes, setNotes] = useState('')
   const [media, setMedia] = useState<OrderMedia[]>([])
+  const [podSubmissions, setPodSubmissions] = useState<PodSubmission[]>([])
 
   useEffect(() => {
     if (order) {
@@ -41,13 +42,19 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
   }, [order])
 
   useEffect(() => {
-    if (!order) { setMedia([]); return }
+    if (!order) { setMedia([]); setPodSubmissions([]); return }
     supabase
       .from('order_media')
       .select('*')
       .eq('order_id', order.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setMedia((data as OrderMedia[]) || []))
+    supabase
+      .from('pod_submissions')
+      .select('*')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setPodSubmissions((data as PodSubmission[]) || []))
   }, [order])
 
   if (!order) return null
@@ -171,6 +178,62 @@ export default function OrderDetailModal({ order, open, onClose, onSave, onCance
                 )}
                 {m.note && (
                   <p className="text-xs text-text/70 leading-relaxed mt-1.5 pt-1.5 border-t border-border/50">{m.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {podSubmissions.length > 0 && (
+        <div className="mb-3.5">
+          <label className="text-[11px] text-muted uppercase tracking-wider mb-1.5 block">POD Submissions</label>
+          <div className="flex flex-col gap-2">
+            {podSubmissions.map((pod) => (
+              <div key={pod.id} className="bg-s2 border border-border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                    pod.status === 'verified' ? 'bg-green/12 text-green' :
+                    pod.status === 'rejected' ? 'bg-red/12 text-red' :
+                    'bg-amber/12 text-amber'
+                  }`}>
+                    {pod.status}
+                  </span>
+                  <span className="text-[10px] text-muted">
+                    from {pod.sender_name} · {new Date(pod.created_at).toLocaleString('en-IE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                {pod.media_type === 'image' && pod.file_data && (
+                  <img
+                    src={`/api/pod-media/${pod.id}`}
+                    alt="POD"
+                    className="rounded-lg border border-border max-h-48 object-contain mb-2"
+                  />
+                )}
+                {pod.media_type === 'audio' && pod.file_data && (
+                  <audio
+                    controls
+                    src={`/api/pod-media/${pod.id}`}
+                    className="w-full mb-2"
+                  />
+                )}
+                {pod.media_type === 'document' && pod.file_data && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-4 h-4 text-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <a
+                      href={`/api/pod-media/${pod.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue font-medium hover:underline"
+                    >
+                      Download document
+                    </a>
+                  </div>
+                )}
+                {pod.caption && (
+                  <p className="text-xs text-muted/80 leading-relaxed whitespace-pre-wrap">{pod.caption}</p>
                 )}
               </div>
             ))}
