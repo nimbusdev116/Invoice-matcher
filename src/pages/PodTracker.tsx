@@ -171,23 +171,23 @@ export default function PodTracker() {
     })
   }
 
-  async function handleAssignPod(submissionId: string, orderId: string, soNumber: string) {
+  async function handleAssignAndVerify(submissionId: string, orderId: string, soNumber: string) {
     try {
       const res = await fetch(`/api/pod-submissions/${submissionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: orderId, so_number: soNumber }),
+        body: JSON.stringify({ order_id: orderId, so_number: soNumber, status: 'verified' }),
       })
 
       if (!res.ok) throw new Error('Failed to assign')
 
       const updated = await res.json()
-      showToast('POD assigned to invoice', 'success')
+      showToast('POD assigned & verified', 'success')
       setSubmissions((prev) =>
-        prev.map((s) => (s.id === submissionId ? { ...s, order_id: updated.order_id, so_number: updated.so_number } : s))
+        prev.map((s) => (s.id === submissionId ? { ...s, order_id: updated.order_id, so_number: updated.so_number, status: 'verified' as const } : s))
       )
       if (selectedSubmission?.id === submissionId) {
-        setSelectedSubmission((prev) => prev ? { ...prev, order_id: updated.order_id, so_number: updated.so_number } : null)
+        setSelectedSubmission((prev) => prev ? { ...prev, order_id: updated.order_id, so_number: updated.so_number, status: 'verified' as const } : null)
       }
     } catch {
       showToast('Failed to assign POD to invoice', 'error')
@@ -422,8 +422,8 @@ export default function PodTracker() {
         onReject={() => selectedSubmission && handleSubmissionStatus(selectedSubmission.id, 'rejected')}
         onDelete={() => selectedSubmission && handleDelete(selectedSubmission.id)}
         onDownload={() => selectedSubmission && handleDownload(selectedSubmission)}
-        onAssign={async (orderId, soNumber) => {
-          if (selectedSubmission) await handleAssignPod(selectedSubmission.id, orderId, soNumber)
+        onAssignAndVerify={async (orderId, soNumber) => {
+          if (selectedSubmission) await handleAssignAndVerify(selectedSubmission.id, orderId, soNumber)
         }}
       />
     </div>
@@ -442,7 +442,7 @@ function PodSubmissionDetailModal({
   onReject,
   onDelete,
   onDownload,
-  onAssign,
+  onAssignAndVerify,
 }: {
   submission: PodSubmission | null
   open: boolean
@@ -453,21 +453,21 @@ function PodSubmissionDetailModal({
   onReject: () => void
   onDelete: () => void
   onDownload: () => void
-  onAssign: (orderId: string, soNumber: string) => Promise<void>
+  onAssignAndVerify: (orderId: string, soNumber: string) => Promise<void>
 }) {
   const [confirming, setConfirming] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Order[]>([])
   const [searching, setSearching] = useState(false)
   const [assigning, setAssigning] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
+  const [showInvoiceSearch, setShowInvoiceSearch] = useState(false)
 
   useEffect(() => {
     if (!open) {
       setConfirming(false)
       setSearchQuery('')
       setSearchResults([])
-      setShowSearch(false)
+      setShowInvoiceSearch(false)
     }
   }, [open])
 
@@ -501,11 +501,19 @@ function PodSubmissionDetailModal({
     rejected: 'bg-red/12 text-red',
   }
 
-  async function handleAssign(order: Order) {
+  function handleVerifyClick() {
+    if (submission!.order_id) {
+      onVerify()
+    } else {
+      setShowInvoiceSearch(true)
+    }
+  }
+
+  async function handleSelectInvoice(order: Order) {
     setAssigning(true)
-    await onAssign(order.id, order.so_number || '')
+    await onAssignAndVerify(order.id, order.so_number || '')
     setAssigning(false)
-    setShowSearch(false)
+    setShowInvoiceSearch(false)
     setSearchQuery('')
     setSearchResults([])
   }
@@ -514,38 +522,129 @@ function PodSubmissionDetailModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`POD from ${submission.sender_name}`}
+      title={showInvoiceSearch ? 'Select Invoice to Verify POD' : `POD from ${submission.sender_name}`}
       footer={
-        <>
-          {confirming ? (
-            <>
-              <Button size="sm" variant="danger" onClick={onDelete} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Confirm delete'}
-              </Button>
-              <Button size="sm" onClick={() => setConfirming(false)}>Cancel</Button>
-            </>
-          ) : (
-            <Button size="sm" variant="danger" onClick={() => setConfirming(true)}>Delete</Button>
-          )}
-          <div className="flex-1" />
-          {submission.file_data && (
-            <Button size="sm" onClick={onDownload}>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Download
+        showInvoiceSearch ? (
+          <>
+            <Button size="sm" onClick={() => setShowInvoiceSearch(false)}>
+              Back
             </Button>
-          )}
-          {submission.status === 'pending' && submission.order_id && (
-            <>
-              <Button size="sm" variant="danger" disabled={updating} onClick={onReject}>Reject</Button>
-              <Button size="sm" variant="green" disabled={updating} onClick={onVerify}>Verify</Button>
-            </>
-          )}
-        </>
+            <div className="flex-1" />
+            <span className="text-[11px] text-muted/60">Select an invoice to verify this POD</span>
+          </>
+        ) : (
+          <>
+            {confirming ? (
+              <>
+                <Button size="sm" variant="danger" onClick={onDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Confirm delete'}
+                </Button>
+                <Button size="sm" onClick={() => setConfirming(false)}>Cancel</Button>
+              </>
+            ) : (
+              <Button size="sm" variant="danger" onClick={() => setConfirming(true)}>Delete</Button>
+            )}
+            <div className="flex-1" />
+            {submission.file_data && (
+              <Button size="sm" onClick={onDownload}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Download
+              </Button>
+            )}
+            {submission.status === 'pending' && (
+              <>
+                <Button size="sm" variant="danger" disabled={updating} onClick={onReject}>Reject</Button>
+                <Button size="sm" variant="green" disabled={updating} onClick={handleVerifyClick}>Verify</Button>
+              </>
+            )}
+          </>
+        )
       }
     >
-      {/* Full-size media preview */}
+      {/* Invoice search view — replaces content when user clicks Verify on unlinked POD */}
+      {showInvoiceSearch ? (
+        <div>
+          <div className="bg-amber/8 border border-amber/20 rounded-lg p-3 mb-4 flex items-start gap-2.5">
+            <svg className="w-4 h-4 text-amber shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <div>
+              <div className="text-xs font-semibold text-amber mb-0.5">Invoice Required</div>
+              <div className="text-[11px] text-amber/70">Search and select an invoice to assign this POD. It will be verified automatically.</div>
+            </div>
+          </div>
+
+          <div className="relative mb-3">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by SO#, invoice#, ref#, or customer..."
+              autoFocus
+              className="w-full bg-s1 border border-border rounded-lg py-2.5 pl-9 pr-3 text-[13px] text-text outline-none focus:border-blue/50 transition placeholder:text-muted/40"
+            />
+          </div>
+
+          {searching && (
+            <div className="flex items-center gap-2 py-6 justify-center text-muted">
+              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs">Searching...</span>
+            </div>
+          )}
+
+          {!searching && searchQuery.trim().length < 2 && (
+            <div className="py-6 text-center text-xs text-muted/50">Type at least 2 characters to search</div>
+          )}
+
+          {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+            <div className="py-6 text-center text-xs text-muted/60">No orders found</div>
+          )}
+
+          {searchResults.length > 0 && (
+            <div className="max-h-64 overflow-y-auto flex flex-col gap-1.5">
+              {searchResults.map((order) => (
+                <button
+                  key={order.id}
+                  disabled={assigning}
+                  onClick={() => handleSelectInvoice(order)}
+                  className="w-full text-left bg-s1 border border-border rounded-lg p-3 hover:border-green/40 hover:bg-green/5 transition-all cursor-pointer disabled:opacity-50 group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[13px] font-semibold text-text truncate mr-2">{order.customer_name}</span>
+                    <span className="text-[11px] text-text font-medium tabular-nums shrink-0">{formatEur(order.value)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-muted/60">
+                    {order.so_number && <span className="text-blue font-medium">{order.so_number}</span>}
+                    {order.zoho_invoice_number && (
+                      <>
+                        <span className="text-border">|</span>
+                        <span>INV: {order.zoho_invoice_number}</span>
+                      </>
+                    )}
+                    {order.reference_number && (
+                      <>
+                        <span className="text-border">|</span>
+                        <span>Ref: {order.reference_number}</span>
+                      </>
+                    )}
+                    <span className="ml-auto text-green font-medium opacity-0 group-hover:opacity-100 transition-opacity">Assign & Verify</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Full-size media preview */}
       {submission.media_type === 'image' && submission.file_data && (
         <div className="mb-4 bg-s2 border border-border rounded-lg overflow-hidden">
           <img
@@ -595,99 +694,6 @@ function PodSubmissionDetailModal({
         </div>
       )}
 
-      {/* Assign to Invoice — required before verify/reject */}
-      {!submission.order_id && (
-        <div className="mb-4">
-          <label className="text-[10px] uppercase tracking-wider text-amber mb-1.5 flex items-center gap-1.5">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-            Assign to Invoice (required)
-          </label>
-          {!showSearch ? (
-            <button
-              onClick={() => setShowSearch(true)}
-              className="w-full bg-s2 border border-dashed border-blue/30 rounded-lg p-3 flex items-center justify-center gap-2 text-blue text-xs font-medium hover:bg-blue/5 hover:border-blue/50 transition-all cursor-pointer"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-              </svg>
-              Search & assign an invoice
-            </button>
-          ) : (
-            <div className="bg-s2 border border-border rounded-lg p-3">
-              <div className="relative mb-2">
-                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by SO#, invoice#, ref#, or customer..."
-                  autoFocus
-                  className="w-full bg-s1 border border-border rounded-md py-2 pl-8 pr-3 text-[13px] text-text outline-none focus:border-blue/50 transition placeholder:text-muted/40"
-                />
-              </div>
-
-              {searching && (
-                <div className="flex items-center gap-2 py-3 justify-center text-muted">
-                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
-                    <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <span className="text-xs">Searching...</span>
-                </div>
-              )}
-
-              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                <div className="py-3 text-center text-xs text-muted/60">No orders found</div>
-              )}
-
-              {searchResults.length > 0 && (
-                <div className="max-h-48 overflow-y-auto flex flex-col gap-1.5">
-                  {searchResults.map((order) => (
-                    <button
-                      key={order.id}
-                      disabled={assigning}
-                      onClick={() => handleAssign(order)}
-                      className="w-full text-left bg-s1 border border-border rounded-lg p-2.5 hover:border-blue/40 hover:bg-blue/5 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[13px] font-semibold text-text truncate mr-2">{order.customer_name}</span>
-                        <span className="text-[11px] text-text font-medium tabular-nums shrink-0">{formatEur(order.value)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-muted/60">
-                        {order.so_number && <span className="text-blue font-medium">{order.so_number}</span>}
-                        {order.zoho_invoice_number && (
-                          <>
-                            <span className="text-border">|</span>
-                            <span>INV: {order.zoho_invoice_number}</span>
-                          </>
-                        )}
-                        {order.reference_number && (
-                          <>
-                            <span className="text-border">|</span>
-                            <span>Ref: {order.reference_number}</span>
-                          </>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]) }}
-                className="mt-2 text-[10px] text-muted/60 hover:text-muted cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {submission.order_id && (
         <div className="mb-4">
           <label className="text-[10px] uppercase tracking-wider text-muted mb-1.5 block">Linked Invoice</label>
@@ -733,6 +739,8 @@ function PodSubmissionDetailModal({
           day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
         })}
       </div>
+        </>
+      )}
     </Modal>
   )
 }
@@ -856,15 +864,11 @@ function PodSubmissionCard({
             {submission.status}
           </span>
 
-          {submission.status === 'pending' && !submission.order_id && (
-            <span className="text-[10px] font-medium text-amber/70 italic">Assign invoice to verify</span>
-          )}
-
-          {submission.status === 'pending' && submission.order_id && (
+          {submission.status === 'pending' && (
             <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
               <button
                 disabled={updating}
-                onClick={onVerify}
+                onClick={submission.order_id ? onVerify : onClick}
                 className={cn(
                   'text-[10px] font-semibold px-2 py-1 rounded-md bg-green/12 text-green hover:bg-green/20 transition-all cursor-pointer',
                   updating && 'opacity-50 cursor-not-allowed'
