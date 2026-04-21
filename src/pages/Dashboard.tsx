@@ -163,7 +163,7 @@ export default function Dashboard() {
   }, [orders])
 
   const {
-    pendingCount, processingCount, awaitingShipmentCount, shippedCount, deliveredCount,
+    pendingCount, processingCount, awaitingShipmentCount, deliveredCount,
     urgentCount, deliveredTodayCount, totalValue, activeValue,
     channelData, pipelineCounts, maxPipeline, maxChannelCount,
   } = stats
@@ -291,7 +291,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-end gap-1.5">
             {PIPELINE_STAGES.map((stage, i) => {
-              const count = pipelineCounts[stage.status] || 0
+              const count = pipelineCounts[stage.status as keyof typeof pipelineCounts] || 0
               const pct = Math.max((count / maxPipeline) * 100, 4)
               return (
                 <div key={stage.status} className="flex-1 group" style={{ animation: `slideUp ${0.3 + i * 0.08}s ease-out` }}>
