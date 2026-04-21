@@ -1,16 +1,32 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import AppShell from './components/layout/AppShell'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import PendingBoard from './pages/PendingBoard'
-import Dashboard from './pages/Dashboard'
-import AllOrders from './pages/AllOrders'
-import Deliveries from './pages/Deliveries'
-import PodTracker from './pages/PodTracker'
-import Settings from './pages/Settings'
-import Alerts from './pages/Alerts'
+
+const PendingBoard = lazy(() => import('./pages/PendingBoard'))
+const Dashboard    = lazy(() => import('./pages/Dashboard'))
+const AllOrders    = lazy(() => import('./pages/AllOrders'))
+const Deliveries   = lazy(() => import('./pages/Deliveries'))
+const PodTracker   = lazy(() => import('./pages/PodTracker'))
+const Alerts       = lazy(() => import('./pages/Alerts'))
+const Settings     = lazy(() => import('./pages/Settings'))
+
+function PageSpinner() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="flex items-center gap-2.5 text-muted">
+        <svg className="w-4 h-4 animate-spin" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+          <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <span className="text-sm">Loading...</span>
+      </div>
+    </div>
+  )
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -75,13 +91,15 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/orders" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="orders" element={<PendingBoard />} />
-        <Route path="all-orders" element={<AllOrders />} />
-        <Route path="deliveries" element={<Deliveries />} />
-        <Route path="pod-tracker" element={<PodTracker />} />
-        <Route path="alerts" element={<Alerts />} />
-        <Route path="settings" element={<Settings />} />
+        <Suspense fallback={<PageSpinner />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="orders" element={<PendingBoard />} />
+          <Route path="all-orders" element={<AllOrders />} />
+          <Route path="deliveries" element={<Deliveries />} />
+          <Route path="pod-tracker" element={<PodTracker />} />
+          <Route path="alerts" element={<Alerts />} />
+          <Route path="settings" element={<Settings />} />
+        </Suspense>
       </Route>
       <Route path="*" element={<Navigate to="/orders" replace />} />
     </Routes>

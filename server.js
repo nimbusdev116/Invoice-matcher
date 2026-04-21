@@ -1,4 +1,5 @@
 import express from 'express'
+import compression from 'compression'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -20,6 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3000
 
+app.use(compression())
 app.use(cors())
 app.use(express.json())
 
@@ -837,7 +839,16 @@ app.get('/api/health', (req, res) => {
 
 // ─── Static Files (SPA) ─────────────────────────────────────────────────────
 
-app.use(express.static(path.join(__dirname, 'dist')))
+// Hashed assets (JS/CSS bundles) → cache permanently (immutable)
+app.use('/assets', express.static(path.join(__dirname, 'dist/assets'), {
+  maxAge: '1y',
+  immutable: true,
+}))
+// Root files (index.html, favicon, sw.js, manifest) → always revalidate
+app.use(express.static(path.join(__dirname, 'dist'), {
+  maxAge: 0,
+  etag: true,
+}))
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })

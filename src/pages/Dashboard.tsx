@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { zohoSync } from '../lib/api'
 import type { Order, OrderChannel, OrderStatus } from '../types'
@@ -78,12 +78,18 @@ export default function Dashboard() {
     if (!liveUpdates) return
     const channel = supabase
       .channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchData()
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setOrders((prev) => [payload.new as Order, ...prev])
+        } else if (payload.eventType === 'UPDATE') {
+          setOrders((prev) => prev.map((o) => o.id === (payload.new as Order).id ? payload.new as Order : o))
+        } else if (payload.eventType === 'DELETE') {
+          setOrders((prev) => prev.filter((o) => o.id !== (payload.old as { id: string }).id))
+        }
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [liveUpdates, fetchData])
+  }, [liveUpdates])
 
   useEffect(() => {
     localStorage.setItem('autoSync', String(autoSync))
@@ -118,43 +124,49 @@ export default function Dashboard() {
     }
   }
 
-  const pendingCount = orders.filter((o) => o.status === 'pending').length
-  const processingCount = orders.filter((o) => o.status === 'processing').length
-  const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
-  const shippedCount = orders.filter((o) => o.status === 'shipped').length
-  const deliveredCount = orders.filter((o) => o.status === 'delivered').length
-  const urgentCount = orders.filter(
-    (o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status) && hoursAgo(o.created_at) >= 72
-  ).length
-  const today = new Date().toISOString().slice(0, 10)
-  const deliveredTodayCount = orders.filter(
-    (o) => o.status === 'delivered' && o.delivered_at && o.delivered_at.slice(0, 10) === today
-  ).length
-  const totalValue = orders.reduce((sum, o) => sum + Number(o.value), 0)
-  const activeValue = orders
-    .filter((o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status))
-    .reduce((sum, o) => sum + Number(o.value), 0)
-
-  const pipelineCounts: Record<string, number> = {
-    pending: pendingCount,
-    processing: processingCount,
-    awaiting_shipment: awaitingShipmentCount,
-    shipped: shippedCount,
-    delivered: deliveredCount,
-  }
-  const maxPipeline = Math.max(...Object.values(pipelineCounts), 1)
-
-  const channels: OrderChannel[] = ['direct', 'bwg', 'musgrave', 'manual']
-  const channelData = channels.map((ch) => {
-    const chOrders = orders.filter((o) => o.channel === ch)
-    return {
-      channel: ch,
-      count: chOrders.length,
-      value: chOrders.reduce((s, o) => s + Number(o.value), 0),
-      active: chOrders.filter((o) => ['pending', 'processing', 'awaiting_shipment'].includes(o.status)).length,
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const ACTIVE = ['pending', 'processing', 'awaiting_shipment']
+    let pending = 0, processing = 0, awaiting = 0, shipped = 0, delivered = 0
+    let urgent = 0, deliveredToday = 0, totalVal = 0, activeVal = 0
+    const chCounts: Record<string, { count: number; value: number; active: number }> = {
+      direct: { count: 0, value: 0, active: 0 },
+      bwg: { count: 0, value: 0, active: 0 },
+      musgrave: { count: 0, value: 0, active: 0 },
+      manual: { count: 0, value: 0, active: 0 },
     }
-  })
-  const maxChannelCount = Math.max(...channelData.map((c) => c.count), 1)
+    for (const o of orders) {
+      const val = Number(o.value)
+      totalVal += val
+      if (o.status === 'pending') pending++
+      else if (o.status === 'processing') processing++
+      else if (o.status === 'awaiting_shipment') awaiting++
+      else if (o.status === 'shipped') shipped++
+      else if (o.status === 'delivered') delivered++
+      if (ACTIVE.includes(o.status)) { urgent += hoursAgo(o.created_at) >= 72 ? 1 : 0; activeVal += val }
+      if (o.status === 'delivered' && o.delivered_at?.slice(0, 10) === today) deliveredToday++
+      const ch = chCounts[o.channel]
+      if (ch) { ch.count++; ch.value += val; if (ACTIVE.includes(o.status)) ch.active++ }
+    }
+    const channelData = (['direct', 'bwg', 'musgrave', 'manual'] as OrderChannel[]).map((ch) => ({
+      channel: ch, ...chCounts[ch],
+    }))
+    const pipelineCounts = { pending, processing, awaiting_shipment: awaiting, shipped, delivered }
+    return {
+      pendingCount: pending, processingCount: processing, awaitingShipmentCount: awaiting,
+      shippedCount: shipped, deliveredCount: delivered, urgentCount: urgent,
+      deliveredTodayCount: deliveredToday, totalValue: totalVal, activeValue: activeVal,
+      channelData, pipelineCounts,
+      maxPipeline: Math.max(pending, processing, awaiting, shipped, delivered, 1),
+      maxChannelCount: Math.max(...channelData.map((c) => c.count), 1),
+    }
+  }, [orders])
+
+  const {
+    pendingCount, processingCount, awaitingShipmentCount, shippedCount, deliveredCount,
+    urgentCount, deliveredTodayCount, totalValue, activeValue,
+    channelData, pipelineCounts, maxPipeline, maxChannelCount,
+  } = stats
 
   const CHANNEL_COLORS: Record<string, string> = {
     blue: 'bg-blue',

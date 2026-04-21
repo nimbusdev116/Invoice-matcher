@@ -93,15 +93,16 @@ export default function Deliveries() {
     return () => { cancelled = true }
   }, [])
 
-  const today = new Date().toISOString().slice(0, 10)
-  const awaitingShipmentCount = orders.filter((o) => o.status === 'awaiting_shipment').length
-  const shippedCount = orders.filter((o) => o.status === 'shipped').length
-  const deliveredTodayCount = orders.filter(
-    (o) => o.status === 'delivered' && o.delivered_at && o.delivered_at.slice(0, 10) === today
-  ).length
-  const awaitingPodCount = orders.filter(
-    (o) => !o.pod_received && o.status === 'shipped'
-  ).length
+  const { awaitingShipmentCount, shippedCount, deliveredTodayCount, awaitingPodCount } = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    let awaiting = 0, shipped = 0, deliveredToday = 0, awaitingPod = 0
+    for (const o of orders) {
+      if (o.status === 'awaiting_shipment') awaiting++
+      else if (o.status === 'shipped') { shipped++; if (!o.pod_received) awaitingPod++ }
+      else if (o.status === 'delivered' && o.delivered_at?.slice(0, 10) === today) deliveredToday++
+    }
+    return { awaitingShipmentCount: awaiting, shippedCount: shipped, deliveredTodayCount: deliveredToday, awaitingPodCount: awaitingPod }
+  }, [orders])
 
   const filtered = useMemo(() => {
     let list = orders

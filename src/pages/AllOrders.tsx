@@ -81,6 +81,7 @@ export default function AllOrders() {
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
+        .limit(1000)
 
       if (!cancelled) {
         if (error) console.error('Failed to fetch orders', error)
